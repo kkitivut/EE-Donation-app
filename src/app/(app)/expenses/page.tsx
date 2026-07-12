@@ -47,7 +47,7 @@ export default async function ExpensesPage({
   for (let y = latestYear; y >= firstYear; y--) years.push(y);
 
   const selectedYear: number | "all" =
-    params.year === "all" ? "all" : params.year ? Number(params.year) : latestYear;
+    !params.year || params.year === "all" ? "all" : Number(params.year);
   const page = Math.max(1, Number(params.page) || 1);
 
   let query = supabase

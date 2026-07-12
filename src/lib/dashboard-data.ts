@@ -75,12 +75,9 @@ export async function getDashboardData(
   const years: number[] = [];
   for (let y = latestYear; y >= firstYear; y--) years.push(y);
 
-  const isAllYears = yearParam === "all";
-  const year: number | "all" = isAllYears
-    ? "all"
-    : yearParam
-      ? Number(yearParam)
-      : latestYear;
+  // ไม่ระบุปี (ครั้งแรกที่เข้าหน้า) ให้ default เป็น "ทั้งหมด"
+  const isAllYears = !yearParam || yearParam === "all";
+  const year: number | "all" = isAllYears ? "all" : Number(yearParam);
 
   let donationsQuery = supabase
     .from("donations")
