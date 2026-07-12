@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOutAndRedirect } from "@/lib/supabase/sign-out";
 import { DEMO_MODE } from "@/lib/demo/config";
+import { SESSION_FLAG_KEY, markSessionActive } from "@/lib/session-flag";
 
-const SESSION_FLAG_KEY = "ee_session_active";
 const IDLE_LIMIT_MS = 5 * 60 * 1000;
 const WARNING_LEAD_MS = 30 * 1000;
 const RESET_THROTTLE_MS = 1000;
@@ -51,7 +51,7 @@ export default function SessionGuard() {
       signOutAndRedirect(router);
       return;
     }
-    sessionStorage.setItem(SESSION_FLAG_KEY, "1");
+    markSessionActive();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { markSessionActive } from "@/lib/session-flag";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
+    markSessionActive();
     router.push("/");
     router.refresh();
   }
