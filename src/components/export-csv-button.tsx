@@ -20,7 +20,7 @@ export default function ExportCsvButton({
   byPurpose,
   byCategory,
 }: {
-  year: number;
+  year: number | "all";
   monthly: MonthlyPoint[];
   byPurpose: NamedTotal[];
   byCategory: NamedTotal[];

@@ -13,7 +13,7 @@ export default function YearSelect({
   basePath,
 }: {
   years: number[];
-  value: number;
+  value: number | "all";
   basePath: string;
 }) {
   const router = useRouter();
@@ -32,6 +32,7 @@ export default function YearSelect({
           }}
           className="rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-9 text-sm focus:border-teal-600 focus:outline-none"
         >
+          <option value="all">ทั้งหมด</option>
           {years.map((y) => (
             <option key={y} value={y}>
               {y}

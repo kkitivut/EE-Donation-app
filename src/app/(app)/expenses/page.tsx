@@ -46,7 +46,8 @@ export default async function ExpensesPage({
   const years: number[] = [];
   for (let y = latestYear; y >= firstYear; y--) years.push(y);
 
-  const selectedYear = params.year ? Number(params.year) : latestYear;
+  const selectedYear: number | "all" =
+    params.year === "all" ? "all" : params.year ? Number(params.year) : latestYear;
   const page = Math.max(1, Number(params.page) || 1);
 
   let query = supabase
@@ -56,7 +57,7 @@ export default async function ExpensesPage({
       { count: "exact" }
     );
 
-  if (selectedYear) {
+  if (selectedYear !== "all") {
     const { from, to } = beYearRange(selectedYear);
     query = query.gte("paid_date", from).lte("paid_date", to);
   }
@@ -96,7 +97,10 @@ export default async function ExpensesPage({
             name: "year",
             label: "ปี พ.ศ. (ตามวันที่จ่าย)",
             value: String(selectedYear),
-            options: years.map((y) => ({ value: String(y), label: String(y) })),
+            options: [
+              { value: "all", label: "ทั้งหมด" },
+              ...years.map((y) => ({ value: String(y), label: String(y) })),
+            ],
           },
           {
             type: "text",

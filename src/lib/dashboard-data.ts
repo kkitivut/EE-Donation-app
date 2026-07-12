@@ -17,7 +17,7 @@ export type NamedTotal = { name: string; received: number; spent: number };
 
 export type DashboardData = {
   years: number[];
-  year: number;
+  year: number | "all";
   yearReceived: number;
   yearSpent: number;
   yearCount: number;
@@ -75,39 +75,55 @@ export async function getDashboardData(
   const years: number[] = [];
   for (let y = latestYear; y >= firstYear; y--) years.push(y);
 
-  const year = yearParam ? Number(yearParam) : latestYear;
-  const { from, to } = beYearRange(year);
-  const prev = beYearRange(year - 1);
+  const isAllYears = yearParam === "all";
+  const year: number | "all" = isAllYears
+    ? "all"
+    : yearParam
+      ? Number(yearParam)
+      : latestYear;
 
-  const [
-    { data: donations },
-    { data: allocations },
-    { data: prevDonations },
-    { data: overall },
-    { data: yearlyRows },
-  ] = await Promise.all([
-    supabase
-      .from("donations")
-      .select("amount, receipt_date, purposes(name), categories(name)")
-      .gte("receipt_date", from)
-      .lte("receipt_date", to)
-      .limit(MAX_ROWS),
-    supabase
-      .from("expense_allocations")
-      .select("amount, expenses!inner(paid_date), donations(purposes(name), categories(name))")
+  let donationsQuery = supabase
+    .from("donations")
+    .select("amount, receipt_date, purposes(name), categories(name)")
+    .limit(MAX_ROWS);
+  let allocationsQuery = supabase
+    .from("expense_allocations")
+    .select("amount, expenses!inner(paid_date), donations(purposes(name), categories(name))")
+    .limit(MAX_ROWS);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let prevDonationsQuery: any = null;
+
+  if (!isAllYears) {
+    const { from, to } = beYearRange(year as number);
+    donationsQuery = donationsQuery.gte("receipt_date", from).lte("receipt_date", to);
+    allocationsQuery = allocationsQuery
       .gte("expenses.paid_date", from)
-      .lte("expenses.paid_date", to)
-      .limit(MAX_ROWS),
-    supabase
+      .lte("expenses.paid_date", to);
+
+    const prev = beYearRange((year as number) - 1);
+    prevDonationsQuery = supabase
       .from("donations")
       .select("amount")
       .gte("receipt_date", prev.from)
       .lte("receipt_date", prev.to)
-      .limit(MAX_ROWS),
+      .limit(MAX_ROWS);
+  }
+
+  const [
+    { data: donations },
+    { data: allocations },
+    prevResult,
+    { data: overall },
+    { data: yearlyRows },
+  ] = await Promise.all([
+    donationsQuery,
+    allocationsQuery,
+    prevDonationsQuery ?? Promise.resolve({ data: [] as { amount: number }[] }),
     supabase.rpc("overall_summary"),
     // สรุปรายปีรวม (สำหรับกราฟเปรียบเทียบรายปี) — รวมยอดฝั่ง Postgres แทนการดึงทั้งตารางมารวมใน JS
     supabase.rpc("yearly_summary"),
   ]);
+  const prevDonations = (prevResult?.data ?? []) as { amount: number }[];
 
   const dRows = (donations ?? []) as unknown as DonationRow[];
   const aRows = (allocations ?? []) as unknown as AllocationRow[];

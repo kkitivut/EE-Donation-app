@@ -54,14 +54,15 @@ export default async function DonationsPage({
   const years: number[] = [];
   for (let y = latestYear; y >= firstYear; y--) years.push(y);
 
-  const selectedYear = params.year ? Number(params.year) : latestYear;
+  const selectedYear: number | "all" =
+    params.year === "all" ? "all" : params.year ? Number(params.year) : latestYear;
   const page = Math.max(1, Number(params.page) || 1);
 
   let query = supabase
     .from("donations_list_view")
     .select("*", { count: "exact" });
 
-  if (selectedYear) {
+  if (selectedYear !== "all") {
     const { from, to } = beYearRange(selectedYear);
     query = query.gte("receipt_date", from).lte("receipt_date", to);
   }
@@ -116,7 +117,10 @@ export default async function DonationsPage({
             name: "year",
             label: "ปี พ.ศ.",
             value: String(selectedYear),
-            options: years.map((y) => ({ value: String(y), label: String(y) })),
+            options: [
+              { value: "all", label: "ทั้งหมด" },
+              ...years.map((y) => ({ value: String(y), label: String(y) })),
+            ],
           },
           {
             type: "select",

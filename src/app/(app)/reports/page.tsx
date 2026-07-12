@@ -11,6 +11,7 @@ export default async function ReportsPage({
 }) {
   const params = await searchParams;
   const data = await getDashboardData(params.year);
+  const yearLabel = data.year === "all" ? "ทั้งหมด" : data.year;
 
   return (
     <div className="space-y-4">
@@ -31,7 +32,7 @@ export default async function ReportsPage({
       <div className="rounded-2xl bg-white p-8 shadow-sm print:p-0 print:shadow-none">
         <div className="mb-6 text-center">
           <h2 className="text-lg font-bold text-slate-800">
-            สรุปรายรับ-รายจ่ายเงินบริจาค ประจำปี พ.ศ. {data.year}
+            สรุปรายรับ-รายจ่ายเงินบริจาค ประจำปี พ.ศ. {yearLabel}
           </h2>
           <p className="text-sm text-slate-500">
             ภาควิชาวิศวกรรมไฟฟ้า (นับตามปี พ.ศ. ของวันที่ในใบเสร็จ)

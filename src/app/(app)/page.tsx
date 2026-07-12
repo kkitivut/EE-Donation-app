@@ -11,6 +11,7 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const data = await getDashboardData(params.year);
+  const yearLabel = data.year === "all" ? "ทั้งหมด" : data.year;
 
   const yoy =
     data.prevYearReceived > 0
@@ -21,7 +22,7 @@ export default async function DashboardPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">
-          แดชบอร์ด ปี {data.year}
+          แดชบอร์ด ปี {yearLabel}
         </h1>
         <YearSelect years={data.years} value={data.year} basePath="/" />
       </div>
@@ -29,7 +30,7 @@ export default async function DashboardPage({
       {/* KPI */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs text-slate-500">รายรับ ปี {data.year}</p>
+          <p className="text-xs text-slate-500">รายรับ ปี {yearLabel}</p>
           <p className="mt-1 text-2xl font-bold text-slate-800">
             {formatMoney(data.yearReceived)}
           </p>
@@ -37,20 +38,20 @@ export default async function DashboardPage({
             {data.yearCount.toLocaleString()} ใบเสร็จ
             {yoy != null && (
               <span className={yoy >= 0 ? "ml-2 text-emerald-700" : "ml-2 text-red-600"}>
-                {yoy >= 0 ? "▲" : "▼"} {Math.abs(yoy).toFixed(1)}% จากปี {data.year - 1}
+                {yoy >= 0 ? "▲" : "▼"} {Math.abs(yoy).toFixed(1)}% จากปี {(data.year as number) - 1}
               </span>
             )}
           </p>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs text-slate-500">รายจ่าย ปี {data.year}</p>
+          <p className="text-xs text-slate-500">รายจ่าย ปี {yearLabel}</p>
           <p className="mt-1 text-2xl font-bold text-slate-800">
             {formatMoney(data.yearSpent)}
           </p>
           <p className="mt-1 text-xs text-slate-400">ตามวันที่จ่ายเงิน</p>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-xs text-slate-500">รับ − จ่าย ปี {data.year}</p>
+          <p className="text-xs text-slate-500">ยอดคงเหลือ ปี {yearLabel}</p>
           <p
             className={`mt-1 text-2xl font-bold ${
               data.yearReceived - data.yearSpent >= 0
@@ -75,13 +76,13 @@ export default async function DashboardPage({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <div className="rounded-2xl bg-white p-5 shadow-sm xl:col-span-3">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">
-            รายรับ-รายจ่าย รายเดือน ปี {data.year}
+            รายรับ-รายจ่าย รายเดือน ปี {yearLabel}
           </h2>
           <MonthlyChart data={data.monthly} />
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm xl:col-span-2">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">
-            รายรับตามวัตถุประสงค์ ปี {data.year}
+            รายรับตามวัตถุประสงค์ ปี {yearLabel}
           </h2>
           <PurposeDonut data={data.byPurpose} />
         </div>
@@ -90,11 +91,11 @@ export default async function DashboardPage({
       {/* สรุปตามวัตถุประสงค์ + หมวดหมู่ */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SummaryTable
-          title={`สรุปตามวัตถุประสงค์ ปี ${data.year}`}
+          title={`สรุปตามวัตถุประสงค์ ปี ${yearLabel}`}
           rows={data.byPurpose}
         />
         <SummaryTable
-          title={`สรุปตามหมวดหมู่ ปี ${data.year}`}
+          title={`สรุปตามหมวดหมู่ ปี ${yearLabel}`}
           rows={data.byCategory}
         />
       </div>
