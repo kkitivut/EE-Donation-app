@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { beYearRange, currentBeYear, formatMoney, formatThaiDate } from "@/lib/format";
-import type { DonationBalance, DonationWithRefs } from "@/lib/types";
+import type { DonationListRow } from "@/lib/types";
 import DonationFormButton from "@/components/donation-form";
 import FilterBar from "@/components/filter-bar";
 
@@ -58,10 +58,8 @@ export default async function DonationsPage({
   const page = Math.max(1, Number(params.page) || 1);
 
   let query = supabase
-    .from("donations")
-    .select("*, purposes(name), fd13_codes(code), categories(name)", {
-      count: "exact",
-    });
+    .from("donations_list_view")
+    .select("*", { count: "exact" });
 
   if (selectedYear) {
     const { from, to } = beYearRange(selectedYear);
@@ -84,21 +82,7 @@ export default async function DonationsPage({
     .order("receipt_no", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
-  const rows = (donations ?? []) as unknown as DonationWithRefs[];
-
-  let balances = new Map<string, DonationBalance>();
-  if (rows.length > 0) {
-    const { data: balanceRows } = await supabase
-      .from("donation_balances")
-      .select("*")
-      .in(
-        "donation_id",
-        rows.map((d) => d.id)
-      );
-    balances = new Map(
-      (balanceRows ?? []).map((b: DonationBalance) => [b.donation_id, b])
-    );
-  }
+  const rows = (donations ?? []) as unknown as DonationListRow[];
 
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
@@ -194,8 +178,7 @@ export default async function DonationsPage({
               </tr>
             )}
             {rows.map((d) => {
-              const bal = balances.get(d.id);
-              const balance = bal ? bal.balance : d.amount;
+              const balance = d.balance;
               return (
                 <tr
                   key={d.id}
@@ -222,8 +205,8 @@ export default async function DonationsPage({
                   >
                     {formatMoney(balance)}
                   </td>
-                  <td className="px-4 py-3">{d.purposes?.name ?? "-"}</td>
-                  <td className="px-4 py-3">{d.categories?.name ?? "-"}</td>
+                  <td className="px-4 py-3">{d.purpose_name ?? "-"}</td>
+                  <td className="px-4 py-3">{d.category_name ?? "-"}</td>
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/donations/${d.id}`}

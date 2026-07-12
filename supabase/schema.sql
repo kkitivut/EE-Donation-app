@@ -91,6 +91,29 @@ from donations d
 left join expense_allocations a on a.donation_id = d.id
 group by d.id, d.amount;
 
+-- ===== View รายการบริจาค + ยอดคงเหลือ + ชื่อ lookup ในตัว (สำหรับหน้ารายการบริจาค) =====
+-- แยกจาก donation_balances เดิม (ที่อื่นยังใช้ donation_balances อยู่) เพื่อให้หน้ารายการบริจาค
+-- query เดียวจบ ไม่ต้อง query donation_balances แยกอีกรอบหลังได้ id มาแล้ว
+
+create view donations_list_view
+with (security_invoker = true) as
+select
+  d.id,
+  d.receipt_no,
+  d.donor_name,
+  d.amount,
+  d.receipt_date,
+  d.purpose_id,
+  d.category_id,
+  p.name as purpose_name,
+  c.name as category_name,
+  (d.amount - coalesce(sum(a.amount), 0))::numeric(14,2) as balance
+from donations d
+left join purposes p on p.id = d.purpose_id
+left join categories c on c.id = d.category_id
+left join expense_allocations a on a.donation_id = d.id
+group by d.id, p.name, c.name;
+
 -- ===== Trigger กันตัดเงินเกินยอดใบเสร็จ =====
 
 create or replace function check_allocation_not_exceed()

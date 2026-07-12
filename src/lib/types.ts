@@ -46,6 +46,19 @@ export type DonationBalance = {
   balance: number;
 };
 
+export type DonationListRow = {
+  id: string;
+  receipt_no: string;
+  donor_name: string;
+  amount: number;
+  receipt_date: string;
+  purpose_id: string | null;
+  category_id: string | null;
+  purpose_name: string | null;
+  category_name: string | null;
+  balance: number;
+};
+
 export type Expense = {
   id: string;
   doc_no: string | null;
