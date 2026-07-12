@@ -1,0 +1,236 @@
+"use client";
+
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { THAI_MONTHS_SHORT, formatMoney } from "@/lib/format";
+import type { MonthlyPoint, NamedTotal, YearlyPoint } from "@/lib/dashboard-data";
+
+// palette ผ่าน scripts/validate_palette.js (dataviz) — light mode
+const RECEIVED = "#2a78d6";
+const SPENT = "#e34948";
+const NET = "#1baf7a"; // aqua — คงเหลือสุทธิ
+const CATEGORICAL = [
+  "#2a78d6", // blue
+  "#1baf7a", // aqua
+  "#eda100", // yellow
+  "#008300", // green
+  "#4a3aa7", // violet
+  "#e34948", // red
+];
+const INK_MUTED = "#898781";
+const GRID = "#e1e0d9";
+
+const compact = new Intl.NumberFormat("th-TH", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function BahtTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { name: string; value: number; color?: string }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+      {label && <p className="mb-1 font-semibold text-slate-700">{label}</p>}
+      {payload.map((p) => (
+        <p key={p.name} className="flex items-center gap-1.5 text-slate-600">
+          <span
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: p.color }}
+          />
+          {p.name}: <span className="tabular-nums">{formatMoney(p.value)} บาท</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+export function MonthlyChart({ data }: { data: MonthlyPoint[] }) {
+  const chartData = data.map((m) => ({
+    name: THAI_MONTHS_SHORT[m.month - 1],
+    รายรับ: m.received,
+    รายจ่าย: m.spent,
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={chartData} barGap={2} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke={GRID} />
+        <XAxis
+          dataKey="name"
+          tick={{ fontSize: 11, fill: INK_MUTED }}
+          axisLine={{ stroke: GRID }}
+          tickLine={false}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: INK_MUTED }}
+          tickFormatter={(v: number) => compact.format(v)}
+          axisLine={false}
+          tickLine={false}
+          width={52}
+        />
+        <Tooltip content={<BahtTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+        <Legend
+          wrapperStyle={{ fontSize: 12 }}
+          iconType="circle"
+          iconSize={8}
+        />
+        <Bar dataKey="รายรับ" fill={RECEIVED} radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="รายจ่าย" fill={SPENT} radius={[4, 4, 0, 0]} maxBarSize={22} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function YearlyChart({ data }: { data: YearlyPoint[] }) {
+  const chartData = data.map((y) => ({
+    name: `${y.year}`,
+    รายรับ: y.received,
+    รายจ่าย: y.spent,
+    คงเหลือสุทธิ: Math.round((y.received - y.spent) * 100) / 100,
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={320}>
+      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke={GRID} />
+        <XAxis
+          dataKey="name"
+          tick={{ fontSize: 12, fill: INK_MUTED }}
+          axisLine={{ stroke: GRID }}
+          tickLine={false}
+          padding={{ left: 24, right: 24 }}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: INK_MUTED }}
+          tickFormatter={(v: number) => compact.format(v)}
+          axisLine={false}
+          tickLine={false}
+          width={52}
+        />
+        <Tooltip content={<BahtTooltip />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+        <Line
+          type="monotone"
+          dataKey="รายรับ"
+          stroke={RECEIVED}
+          strokeWidth={2}
+          strokeDasharray="6 4"
+          dot={{ r: 4, strokeWidth: 0, fill: RECEIVED }}
+          activeDot={{ r: 6 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="รายจ่าย"
+          stroke={SPENT}
+          strokeWidth={2}
+          strokeDasharray="6 4"
+          dot={{ r: 4, strokeWidth: 0, fill: SPENT }}
+          activeDot={{ r: 6 }}
+        />
+        <Line
+          type="monotone"
+          dataKey="คงเหลือสุทธิ"
+          stroke={NET}
+          strokeWidth={2}
+          dot={{ r: 4, strokeWidth: 0, fill: NET }}
+          activeDot={{ r: 6 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function PurposeDonut({ data }: { data: NamedTotal[] }) {
+  // เกิน 6 หมวด: 5 อันดับแรก + รวมที่เหลือเป็น "อื่น ๆ"
+  const items =
+    data.length > 6
+      ? [
+          ...data.slice(0, 5),
+          {
+            name: "อื่น ๆ",
+            received: data.slice(5).reduce((s, d) => s + d.received, 0),
+            spent: 0,
+          },
+        ]
+      : data;
+
+  const chartData = items
+    .filter((d) => d.received > 0)
+    .map((d) => ({ name: d.name, value: d.received }));
+
+  const total = chartData.reduce((s, d) => s + d.value, 0);
+
+  if (total === 0) {
+    return (
+      <p className="flex h-[280px] items-center justify-center text-sm text-slate-400">
+        ไม่มีข้อมูลรายรับในปีนี้
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <div className="h-[200px] w-[200px] shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              dataKey="value"
+              nameKey="name"
+              innerRadius={55}
+              outerRadius={85}
+              paddingAngle={2}
+              stroke="#ffffff"
+              strokeWidth={2}
+            >
+              {chartData.map((_, i) => (
+                <Cell key={i} fill={CATEGORICAL[i % CATEGORICAL.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<BahtTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      {/* legend + ตัวเลข (relief สำหรับสีที่ contrast ต่ำ) */}
+      <ul className="w-full max-w-sm space-y-1.5 text-sm">
+        {chartData.map((d, i) => (
+          <li key={d.name} className="flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: CATEGORICAL[i % CATEGORICAL.length] }}
+            />
+            <span className="min-w-0 flex-1 truncate text-slate-600">
+              {d.name}
+            </span>
+            <span className="tabular-nums text-slate-700">
+              {formatMoney(d.value)}
+            </span>
+            <span className="w-12 text-right text-xs tabular-nums text-slate-400">
+              {((d.value / total) * 100).toFixed(1)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
