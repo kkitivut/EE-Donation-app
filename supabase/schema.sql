@@ -235,6 +235,28 @@ as $$
   );
 $$;
 
+-- ===== RPC: สรุปยอดรายปี (สำหรับกราฟเปรียบเทียบรายปีบน dashboard) =====
+
+create or replace function yearly_summary()
+returns table(year int, received numeric, spent numeric)
+language sql
+security invoker
+as $$
+  select
+    coalesce(d.y, a.y) as year,
+    coalesce(d.received, 0) as received,
+    coalesce(a.spent, 0) as spent
+  from
+    (select (extract(year from receipt_date)::int + 543) as y, sum(amount) as received
+     from donations group by 1) d
+  full outer join
+    (select (extract(year from e.paid_date)::int + 543) as y, sum(ea.amount) as spent
+     from expense_allocations ea join expenses e on e.id = ea.expense_id
+     group by 1) a
+  on d.y = a.y
+  order by 1;
+$$;
+
 -- ===== ข้อมูลอ้างอิงเริ่มต้น (จาก Sheet1 ของ ข้อมูลบริจาค.xlsx) =====
 
 insert into purposes (name, sort_order) values

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { beYear, beYearRange, currentBeYear, monthOf } from "@/lib/format";
+import { beYearRange, currentBeYear, monthOf } from "@/lib/format";
 
 export type MonthlyPoint = {
   month: number;
@@ -84,8 +84,7 @@ export async function getDashboardData(
     { data: allocations },
     { data: prevDonations },
     { data: overall },
-    { data: allDonations },
-    { data: allAllocations },
+    { data: yearlyRows },
   ] = await Promise.all([
     supabase
       .from("donations")
@@ -106,12 +105,8 @@ export async function getDashboardData(
       .lte("receipt_date", prev.to)
       .limit(MAX_ROWS),
     supabase.rpc("overall_summary"),
-    // ทุกปี (สำหรับกราฟเปรียบเทียบรายปี)
-    supabase.from("donations").select("amount, receipt_date").limit(MAX_ROWS),
-    supabase
-      .from("expense_allocations")
-      .select("amount, expenses(paid_date)")
-      .limit(MAX_ROWS),
+    // สรุปรายปีรวม (สำหรับกราฟเปรียบเทียบรายปี) — รวมยอดฝั่ง Postgres แทนการดึงทั้งตารางมารวมใน JS
+    supabase.rpc("yearly_summary"),
   ]);
 
   const dRows = (donations ?? []) as unknown as DonationRow[];
@@ -160,27 +155,20 @@ export async function getDashboardData(
     0
   );
 
-  // สรุปรายปีทุกปี (รับตาม receipt_date, จ่ายตาม paid_date)
-  const yearlyMap = new Map<number, YearlyPoint>();
-  function yearBump(y: number | null, field: "received" | "spent", amt: number) {
-    if (!y) return;
-    const item = yearlyMap.get(y) ?? { year: y, received: 0, spent: 0 };
-    item[field] += amt;
-    yearlyMap.set(y, item);
-  }
-  for (const d of (allDonations ?? []) as unknown as {
-    amount: number;
-    receipt_date: string;
-  }[]) {
-    yearBump(beYear(d.receipt_date), "received", Number(d.amount));
-  }
-  for (const a of (allAllocations ?? []) as unknown as {
-    amount: number;
-    expenses: { paid_date: string } | null;
-  }[]) {
-    yearBump(beYear(a.expenses?.paid_date), "spent", Number(a.amount));
-  }
-  const yearly = [...yearlyMap.values()].sort((a, b) => a.year - b.year);
+  // สรุปรายปีทุกปี — คำนวณฝั่ง Postgres ผ่าน RPC yearly_summary() แล้ว (ดู supabase/schema.sql)
+  const yearly: YearlyPoint[] = (
+    (yearlyRows ?? []) as unknown as {
+      year: number;
+      received: number;
+      spent: number;
+    }[]
+  )
+    .map((r) => ({
+      year: r.year,
+      received: Number(r.received),
+      spent: Number(r.spent),
+    }))
+    .sort((a, b) => a.year - b.year);
 
   const summary = (overall ?? {}) as {
     total_donated?: number;
