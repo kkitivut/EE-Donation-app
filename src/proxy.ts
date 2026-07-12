@@ -36,9 +36,10 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verify JWT ในเครื่อง (local) ถ้า Supabase project ใช้ asymmetric signing key
+  // ถ้ายังใช้ legacy symmetric secret จะ fallback ไปเรียก getUser() แบบเดิมโดยอัตโนมัติ — ปลอดภัยเท่ากันทั้งสองกรณี
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
 
