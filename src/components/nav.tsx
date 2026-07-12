@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAndRedirect } from "@/lib/supabase/sign-out";
 import { DEMO_MODE } from "@/lib/demo/config";
 
 const MENU = [
@@ -19,11 +19,8 @@ export default function Nav({ email }: { email: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+  function signOut() {
+    return signOutAndRedirect(router);
   }
 
   function isActive(href: string) {
