@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 
 type SelectField = {
   type: "select";
@@ -30,6 +30,7 @@ export default function FilterBar({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const [textValues, setTextValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       fields.filter((f): f is TextField => f.type === "text").map((f) => [f.name, f.value])
@@ -44,7 +45,9 @@ export default function FilterBar({
       else sp.delete(k);
     }
     sp.delete("page"); // เปลี่ยนตัวกรอง กลับไปหน้า 1
-    router.replace(`${basePath}?${sp.toString()}`, { scroll: false });
+    startTransition(() =>
+      router.replace(`${basePath}?${sp.toString()}`, { scroll: false })
+    );
   }
 
   function handleClear() {
@@ -54,7 +57,7 @@ export default function FilterBar({
         fields.filter((f): f is TextField => f.type === "text").map((f) => [f.name, ""])
       )
     );
-    router.replace(basePath, { scroll: false });
+    startTransition(() => router.replace(basePath, { scroll: false }));
   }
 
   return (
@@ -103,6 +106,12 @@ export default function FilterBar({
       >
         ล้าง
       </button>
+      {isPending && (
+        <span
+          aria-label="กำลังโหลด"
+          className="mb-1 block h-5 w-5 animate-spin self-center rounded-full border-2 border-slate-300 border-t-teal-700"
+        />
+      )}
     </div>
   );
 }

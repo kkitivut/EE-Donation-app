@@ -22,24 +22,28 @@ export default async function DonationsPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: purposes }, { data: categories }, { data: fd13Codes }] =
-    await Promise.all([
-      supabase.from("purposes").select("*").order("sort_order"),
-      supabase.from("categories").select("*").order("name"),
-      supabase.from("fd13_codes").select("*").order("code"),
-    ]);
-
-  // ปีที่มีข้อมูล (ดึงจากปีของ receipt_date)
-  const { data: yearRows } = await supabase
-    .from("donations")
-    .select("receipt_date")
-    .order("receipt_date", { ascending: false })
-    .limit(1);
-  const { data: yearRowsFirst } = await supabase
-    .from("donations")
-    .select("receipt_date")
-    .order("receipt_date", { ascending: true })
-    .limit(1);
+  // ดึงทุก query ที่ไม่พึ่งกันพร้อมกัน (ลด latency)
+  const [
+    { data: purposes },
+    { data: categories },
+    { data: fd13Codes },
+    { data: yearRows },
+    { data: yearRowsFirst },
+  ] = await Promise.all([
+    supabase.from("purposes").select("*").order("sort_order"),
+    supabase.from("categories").select("*").order("name"),
+    supabase.from("fd13_codes").select("*").order("code"),
+    supabase
+      .from("donations")
+      .select("receipt_date")
+      .order("receipt_date", { ascending: false })
+      .limit(1),
+    supabase
+      .from("donations")
+      .select("receipt_date")
+      .order("receipt_date", { ascending: true })
+      .limit(1),
+  ]);
 
   const latestYear = yearRows?.[0]
     ? Number(yearRows[0].receipt_date.slice(0, 4)) + 543

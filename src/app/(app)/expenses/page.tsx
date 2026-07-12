@@ -24,16 +24,18 @@ export default async function ExpensesPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data: lastRow } = await supabase
-    .from("expenses")
-    .select("paid_date")
-    .order("paid_date", { ascending: false })
-    .limit(1);
-  const { data: firstRow } = await supabase
-    .from("expenses")
-    .select("paid_date")
-    .order("paid_date", { ascending: true })
-    .limit(1);
+  const [{ data: lastRow }, { data: firstRow }] = await Promise.all([
+    supabase
+      .from("expenses")
+      .select("paid_date")
+      .order("paid_date", { ascending: false })
+      .limit(1),
+    supabase
+      .from("expenses")
+      .select("paid_date")
+      .order("paid_date", { ascending: true })
+      .limit(1),
+  ]);
 
   const latestYear = lastRow?.[0]
     ? Number(lastRow[0].paid_date.slice(0, 4)) + 543
