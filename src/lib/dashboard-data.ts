@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { beYearRange, currentBeYear, monthOf } from "@/lib/format";
+import { beYearRange, monthOf } from "@/lib/format";
+import {
+  getDonationYearBounds,
+  parseYearParam,
+  yearFilterRange,
+  yearListDescending,
+} from "@/lib/year-range";
 
 export type MonthlyPoint = {
   month: number;
@@ -52,32 +58,12 @@ export async function getDashboardData(
 ): Promise<DashboardData> {
   const supabase = await createClient();
 
-  // ปีที่มีข้อมูล
-  const [{ data: lastRow }, { data: firstRow }] = await Promise.all([
-    supabase
-      .from("donations")
-      .select("receipt_date")
-      .order("receipt_date", { ascending: false })
-      .limit(1),
-    supabase
-      .from("donations")
-      .select("receipt_date")
-      .order("receipt_date", { ascending: true })
-      .limit(1),
-  ]);
+  const { latestYear, firstYear } = await getDonationYearBounds(supabase);
+  const years = yearListDescending(latestYear, firstYear);
 
-  const latestYear = lastRow?.[0]
-    ? Number(lastRow[0].receipt_date.slice(0, 4)) + 543
-    : currentBeYear();
-  const firstYear = firstRow?.[0]
-    ? Number(firstRow[0].receipt_date.slice(0, 4)) + 543
-    : currentBeYear();
-  const years: number[] = [];
-  for (let y = latestYear; y >= firstYear; y--) years.push(y);
-
-  // ไม่ระบุปี (ครั้งแรกที่เข้าหน้า) ให้ default เป็น "ทั้งหมด"
-  const isAllYears = !yearParam || yearParam === "all";
-  const year: number | "all" = isAllYears ? "all" : Number(yearParam);
+  const yearFilter = parseYearParam(yearParam);
+  const isAllYears = yearFilter.kind === "all";
+  const year: number | "all" = isAllYears ? "all" : yearFilter.year;
 
   let donationsQuery = supabase
     .from("donations")
@@ -90,12 +76,12 @@ export async function getDashboardData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let prevDonationsQuery: any = null;
 
-  if (!isAllYears) {
-    const { from, to } = beYearRange(year as number);
-    donationsQuery = donationsQuery.gte("receipt_date", from).lte("receipt_date", to);
+  const range = yearFilterRange(yearFilter);
+  if (range) {
+    donationsQuery = donationsQuery.gte("receipt_date", range.from).lte("receipt_date", range.to);
     allocationsQuery = allocationsQuery
-      .gte("expenses.paid_date", from)
-      .lte("expenses.paid_date", to);
+      .gte("expenses.paid_date", range.from)
+      .lte("expenses.paid_date", range.to);
 
     const prev = beYearRange((year as number) - 1);
     prevDonationsQuery = supabase

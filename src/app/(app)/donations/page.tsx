@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { beYearRange, currentBeYear, formatMoney, formatThaiDate } from "@/lib/format";
+import { formatMoney, formatThaiDate } from "@/lib/format";
+import {
+  getDonationYearBounds,
+  parseYearParam,
+  yearFilterRange,
+  yearListDescending,
+} from "@/lib/year-range";
 import type { DonationListRow } from "@/lib/types";
 import DonationFormButton from "@/components/donation-form";
 import FilterBar from "@/components/filter-bar";
@@ -23,48 +29,28 @@ export default async function DonationsPage({
   const supabase = await createClient();
 
   // ดึงทุก query ที่ไม่พึ่งกันพร้อมกัน (ลด latency)
-  const [
-    { data: purposes },
-    { data: categories },
-    { data: fd13Codes },
-    { data: yearRows },
-    { data: yearRowsFirst },
-  ] = await Promise.all([
-    supabase.from("purposes").select("*").order("sort_order"),
-    supabase.from("categories").select("*").order("name"),
-    supabase.from("fd13_codes").select("*").order("code"),
-    supabase
-      .from("donations")
-      .select("receipt_date")
-      .order("receipt_date", { ascending: false })
-      .limit(1),
-    supabase
-      .from("donations")
-      .select("receipt_date")
-      .order("receipt_date", { ascending: true })
-      .limit(1),
-  ]);
+  const [{ data: purposes }, { data: categories }, { data: fd13Codes }, yearBounds] =
+    await Promise.all([
+      supabase.from("purposes").select("*").order("sort_order"),
+      supabase.from("categories").select("*").order("name"),
+      supabase.from("fd13_codes").select("*").order("code"),
+      getDonationYearBounds(supabase),
+    ]);
 
-  const latestYear = yearRows?.[0]
-    ? Number(yearRows[0].receipt_date.slice(0, 4)) + 543
-    : currentBeYear();
-  const firstYear = yearRowsFirst?.[0]
-    ? Number(yearRowsFirst[0].receipt_date.slice(0, 4)) + 543
-    : currentBeYear();
-  const years: number[] = [];
-  for (let y = latestYear; y >= firstYear; y--) years.push(y);
-
+  const { latestYear, firstYear } = yearBounds;
+  const years = yearListDescending(latestYear, firstYear);
+  const yearFilter = parseYearParam(params.year);
   const selectedYear: number | "all" =
-    !params.year || params.year === "all" ? "all" : Number(params.year);
+    yearFilter.kind === "all" ? "all" : yearFilter.year;
   const page = Math.max(1, Number(params.page) || 1);
 
   let query = supabase
     .from("donations_list_view")
     .select("*", { count: "exact" });
 
-  if (selectedYear !== "all") {
-    const { from, to } = beYearRange(selectedYear);
-    query = query.gte("receipt_date", from).lte("receipt_date", to);
+  const range = yearFilterRange(yearFilter);
+  if (range) {
+    query = query.gte("receipt_date", range.from).lte("receipt_date", range.to);
   }
   if (params.purpose) query = query.eq("purpose_id", params.purpose);
   if (params.category) query = query.eq("category_id", params.category);

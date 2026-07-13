@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { beYearRange, currentBeYear, formatMoney, formatThaiDate } from "@/lib/format";
+import { formatMoney, formatThaiDate } from "@/lib/format";
+import {
+  getExpenseYearBounds,
+  parseYearParam,
+  yearFilterRange,
+  yearListDescending,
+} from "@/lib/year-range";
 import type { Expense } from "@/lib/types";
 import ExpenseFormButton from "@/components/expense-form";
 import FilterBar from "@/components/filter-bar";
@@ -24,30 +30,11 @@ export default async function ExpensesPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: lastRow }, { data: firstRow }] = await Promise.all([
-    supabase
-      .from("expenses")
-      .select("paid_date")
-      .order("paid_date", { ascending: false })
-      .limit(1),
-    supabase
-      .from("expenses")
-      .select("paid_date")
-      .order("paid_date", { ascending: true })
-      .limit(1),
-  ]);
-
-  const latestYear = lastRow?.[0]
-    ? Number(lastRow[0].paid_date.slice(0, 4)) + 543
-    : currentBeYear();
-  const firstYear = firstRow?.[0]
-    ? Number(firstRow[0].paid_date.slice(0, 4)) + 543
-    : currentBeYear();
-  const years: number[] = [];
-  for (let y = latestYear; y >= firstYear; y--) years.push(y);
-
+  const { latestYear, firstYear } = await getExpenseYearBounds(supabase);
+  const years = yearListDescending(latestYear, firstYear);
+  const yearFilter = parseYearParam(params.year);
   const selectedYear: number | "all" =
-    !params.year || params.year === "all" ? "all" : Number(params.year);
+    yearFilter.kind === "all" ? "all" : yearFilter.year;
   const page = Math.max(1, Number(params.page) || 1);
 
   let query = supabase
@@ -57,9 +44,9 @@ export default async function ExpensesPage({
       { count: "exact" }
     );
 
-  if (selectedYear !== "all") {
-    const { from, to } = beYearRange(selectedYear);
-    query = query.gte("paid_date", from).lte("paid_date", to);
+  const range = yearFilterRange(yearFilter);
+  if (range) {
+    query = query.gte("paid_date", range.from).lte("paid_date", range.to);
   }
   if (params.q) {
     query = query.or(
