@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ThaiDateInput from "@/components/thai-date-input";
 import { formatMoney, formatThaiDate } from "@/lib/format";
+import {
+  allocationSumMatches,
+  findOverAllocated,
+  suggestAllocationAmount,
+} from "@/lib/allocation";
 import type { Expense } from "@/lib/types";
 
 type ExpenseWithAllocations = Expense & {
@@ -156,11 +161,9 @@ function ExpenseModal({
 
   function addAllocation(r: SearchResult) {
     if (allocations.some((a) => a.donation_id === r.id)) return;
-    // เติมยอดอัตโนมัติ: ส่วนที่ยังขาด หรือเท่าที่ใบนี้มี
     const totalNeeded = Number(form.total_amount) || 0;
     const allocated = allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0);
-    const remaining = Math.max(0, totalNeeded - allocated);
-    const suggested = Math.min(remaining || r.balance, r.balance);
+    const suggested = suggestAllocationAmount(totalNeeded, allocated, r.balance);
     setAllocations((list) => [
       ...list,
       {
@@ -192,9 +195,7 @@ function ExpenseModal({
     (s, a) => s + (Number(a.amount) || 0),
     0
   );
-  // เทียบเป็นสตางค์ กันปัญหาทศนิยม
-  const sumMatches =
-    Math.round(allocatedSum * 100) === Math.round(totalAmount * 100);
+  const sumMatches = allocationSumMatches(allocatedSum, totalAmount);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -210,8 +211,8 @@ function ExpenseModal({
       );
       return;
     }
-    const over = allocations.find(
-      (a) => Number(a.amount) > a.available + 0.005
+    const over = findOverAllocated(
+      allocations.map((a) => ({ ...a, amount: Number(a.amount) || 0 }))
     );
     if (over) {
       setError(
