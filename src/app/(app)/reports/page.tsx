@@ -43,19 +43,19 @@ export default async function ReportsPage({
           <div className="rounded-xl border border-slate-200 p-4">
             <p className="text-xs text-slate-500">รายรับรวม</p>
             <p className="mt-1 text-xl font-bold text-slate-800">
-              {formatMoney(data.yearReceived)}
+              {formatMoney(data.yearReceived)} บาท
             </p>
           </div>
           <div className="rounded-xl border border-slate-200 p-4">
             <p className="text-xs text-slate-500">รายจ่ายรวม</p>
             <p className="mt-1 text-xl font-bold text-slate-800">
-              {formatMoney(data.yearSpent)}
+              {formatMoney(data.yearSpent)} บาท
             </p>
           </div>
           <div className="rounded-xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500">รับ − จ่าย</p>
+            <p className="text-xs text-slate-500">คงเหลือรวม</p>
             <p className="mt-1 text-xl font-bold text-slate-800">
-              {formatMoney(data.yearReceived - data.yearSpent)}
+              {formatMoney(data.yearReceived - data.yearSpent)} บาท
             </p>
           </div>
         </div>
