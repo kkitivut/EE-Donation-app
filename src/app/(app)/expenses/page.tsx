@@ -7,6 +7,8 @@ import {
   yearFilterRange,
   yearListDescending,
 } from "@/lib/year-range";
+import { sanitizeSearchTerm } from "@/lib/search";
+import { toUserMessage } from "@/lib/error-message";
 import type { Expense } from "@/lib/types";
 import ExpenseFormButton from "@/components/expense-form";
 import FilterBar from "@/components/filter-bar";
@@ -48,10 +50,9 @@ export default async function ExpensesPage({
   if (range) {
     query = query.gte("paid_date", range.from).lte("paid_date", range.to);
   }
-  if (params.q) {
-    query = query.or(
-      `description.ilike.%${params.q}%,doc_no.ilike.%${params.q}%`
-    );
+  const q = params.q ? sanitizeSearchTerm(params.q) : "";
+  if (q) {
+    query = query.or(`description.ilike.%${q}%,doc_no.ilike.%${q}%`);
   }
 
   const { data: expenses, count, error } = await query
@@ -101,7 +102,7 @@ export default async function ExpensesPage({
 
       {error && (
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          เกิดข้อผิดพลาด: {error.message}
+          {toUserMessage(error, "โหลดข้อมูลไม่สำเร็จ")}
         </p>
       )}
 

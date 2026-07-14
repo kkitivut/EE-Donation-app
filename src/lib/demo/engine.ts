@@ -403,6 +403,7 @@ function rpcSaveExpense(args: SaveExpenseArgs): QueryResult {
       data: null,
       error: {
         message: `ผลรวมการตัดเงิน (${sum.toLocaleString()}) ไม่เท่ากับยอดจ่าย (${args.p_total_amount.toLocaleString()})`,
+        code: "P0001", // mirror save_expense RPC จริงที่ใช้ raise exception
       },
     };
   }
@@ -429,7 +430,8 @@ function rpcSaveExpense(args: SaveExpenseArgs): QueryResult {
   } else {
     expenseId = args.p_expense_id;
     const exp = expenses.find((e) => e.id === expenseId);
-    if (!exp) return { data: null, error: { message: "ไม่พบรายจ่ายนี้" } };
+    if (!exp)
+      return { data: null, error: { message: "ไม่พบรายจ่ายนี้", code: "P0001" } };
     Object.assign(exp, {
       doc_no: args.p_doc_no,
       paid_date: args.p_paid_date,
@@ -446,14 +448,21 @@ function rpcSaveExpense(args: SaveExpenseArgs): QueryResult {
 
   for (const a of args.p_allocations) {
     const donation = donations.find((d) => d.id === a.donation_id);
-    if (!donation) return { data: null, error: { message: "ไม่พบใบเสร็จที่เลือก" } };
+    if (!donation)
+      return {
+        data: null,
+        error: { message: "ไม่พบใบเสร็จที่เลือก", code: "P0001" },
+      };
     const already = allocations
       .filter((x) => x.donation_id === a.donation_id)
       .reduce((s, x) => s + Number(x.amount), 0);
     if (already + Number(a.amount) > Number(donation.amount) + 0.005) {
       return {
         data: null,
-        error: { message: `ยอดตัดเงินรวมเกินยอดใบเสร็จ ${donation.receipt_no}` },
+        error: {
+          message: `ยอดตัดเงินรวมเกินยอดใบเสร็จ ${donation.receipt_no}`,
+          code: "P0001",
+        },
       };
     }
   }

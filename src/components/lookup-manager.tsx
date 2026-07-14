@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { toUserMessage } from "@/lib/error-message";
 
 type Item = { id: string; name: string; active: boolean };
 
@@ -35,7 +36,7 @@ export default function LookupManager({
           ? "มีชื่อนี้อยู่แล้ว"
           : error.code === "23503"
             ? "ลบไม่ได้: มีข้อมูลใช้รายการนี้อยู่ (ใช้ปิดการใช้งานแทน)"
-            : error.message
+            : toUserMessage(error)
       );
     } else {
       router.refresh();

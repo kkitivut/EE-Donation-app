@@ -7,6 +7,8 @@ import {
   yearFilterRange,
   yearListDescending,
 } from "@/lib/year-range";
+import { sanitizeSearchTerm } from "@/lib/search";
+import { toUserMessage } from "@/lib/error-message";
 import type { DonationListRow } from "@/lib/types";
 import DonationFormButton from "@/components/donation-form";
 import FilterBar from "@/components/filter-bar";
@@ -54,10 +56,9 @@ export default async function DonationsPage({
   }
   if (params.purpose) query = query.eq("purpose_id", params.purpose);
   if (params.category) query = query.eq("category_id", params.category);
-  if (params.q) {
-    query = query.or(
-      `donor_name.ilike.%${params.q}%,receipt_no.ilike.%${params.q}%`
-    );
+  const q = params.q ? sanitizeSearchTerm(params.q) : "";
+  if (q) {
+    query = query.or(`donor_name.ilike.%${q}%,receipt_no.ilike.%${q}%`);
   }
 
   const {
@@ -140,7 +141,7 @@ export default async function DonationsPage({
 
       {error && (
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          เกิดข้อผิดพลาด: {error.message}
+          {toUserMessage(error, "โหลดข้อมูลไม่สำเร็จ")}
         </p>
       )}
 

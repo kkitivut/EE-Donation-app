@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/format";
+import { toUserMessage } from "@/lib/error-message";
 import {
   parseWorkbook,
   type ParseResult,
@@ -11,9 +12,13 @@ import {
 
 type ImportLog = { type: "ok" | "skip" | "error"; message: string };
 
+/** จำกัดขนาดไฟล์นำเข้า กันไฟล์ใหญ่ผิดปกติ (5MB) */
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 export default function ImportPage() {
   const supabase = createClient();
   const [fileName, setFileName] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState("");
@@ -24,10 +29,27 @@ export default function ImportPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setFileError(null);
     setLogs([]);
     setDone(false);
-    const buf = await file.arrayBuffer();
-    setParsed(parseWorkbook(buf));
+    setParsed(null);
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError(
+        `ไฟล์ใหญ่เกิน ${MAX_FILE_SIZE / 1024 / 1024} MB — กรุณาแบ่งไฟล์ให้เล็กลง`
+      );
+      return;
+    }
+
+    try {
+      const buf = await file.arrayBuffer();
+      setParsed(parseWorkbook(buf));
+    } catch (err) {
+      console.error("[import] parse failed", err);
+      setFileError(
+        "อ่านไฟล์ไม่สำเร็จ — ไฟล์อาจเสียหายหรือไม่ใช่ไฟล์ Excel (.xlsx) ที่ถูกต้อง"
+      );
+    }
   }
 
   function log(type: ImportLog["type"], message: string) {
@@ -113,7 +135,7 @@ export default function ImportPage() {
           const { error } = await supabase.from("donations").insert(batch);
           if (error) {
             fail += batch.length;
-            log("error", `บันทึกชุดที่ ${i / 500 + 1} ล้มเหลว: ${error.message}`);
+            log("error", `บันทึกชุดที่ ${i / 500 + 1} ล้มเหลว: ${toUserMessage(error)}`);
           } else {
             ok += batch.length;
           }
@@ -178,7 +200,7 @@ export default function ImportPage() {
             fail++;
             log(
               "error",
-              `"${e.description}" (${e.receipt_no}): ${error.message}`
+              `"${e.description}" (${e.receipt_no}): ${toUserMessage(error)}`
             );
           } else {
             ok++;
@@ -254,6 +276,12 @@ export default function ImportPage() {
           {fileName ?? "คลิกเพื่อเลือกไฟล์ .xlsx"}
         </p>
       </label>
+
+      {fileError && (
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {fileError}
+        </p>
+      )}
 
       {parsed && (
         <div className="rounded-2xl bg-white p-5 shadow-sm">

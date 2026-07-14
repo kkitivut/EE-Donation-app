@@ -10,6 +10,8 @@ import {
   findOverAllocated,
   suggestAllocationAmount,
 } from "@/lib/allocation";
+import { sanitizeSearchTerm } from "@/lib/search";
+import { toUserMessage } from "@/lib/error-message";
 import type { Expense } from "@/lib/types";
 
 type ExpenseWithAllocations = Expense & {
@@ -105,7 +107,8 @@ function ExpenseModal({
 
   async function runSearch(q: string) {
     setSearch(q);
-    if (q.trim().length < 2) {
+    const term = sanitizeSearchTerm(q);
+    if (term.length < 2) {
       setResults([]);
       return;
     }
@@ -113,7 +116,7 @@ function ExpenseModal({
     const { data: donations } = await supabase
       .from("donations")
       .select("id, receipt_no, donor_name, receipt_date, purposes(name)")
-      .or(`donor_name.ilike.%${q}%,receipt_no.ilike.%${q}%`)
+      .or(`donor_name.ilike.%${term}%,receipt_no.ilike.%${term}%`)
       .order("receipt_date", { ascending: false })
       .limit(20);
 
@@ -237,7 +240,7 @@ function ExpenseModal({
     });
 
     if (error) {
-      setError(error.message);
+      setError(toUserMessage(error));
       setSaving(false);
       return;
     }
@@ -259,7 +262,7 @@ function ExpenseModal({
       .delete()
       .eq("id", expense.id);
     if (error) {
-      setError(error.message);
+      setError(toUserMessage(error));
       setSaving(false);
       return;
     }
