@@ -36,9 +36,9 @@ export function monthOf(isoDate: string): number {
   return Number(isoDate.slice(5, 7));
 }
 
-/** จำนวนเงิน → "1,234,567.89" */
+/** จำนวนเงิน → "1,234,567.89" — NaN (ข้อมูลเพี้ยน) แสดง "-" แทนที่จะโชว์ "NaN" ให้ผู้ใช้เห็น */
 export function formatMoney(n: number | null | undefined): string {
-  if (n == null) return "-";
+  if (n == null || Number.isNaN(n)) return "-";
   return n.toLocaleString("th-TH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

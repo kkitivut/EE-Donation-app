@@ -4,10 +4,17 @@ import { beYear, beYearRange, currentBeYear } from "@/lib/format";
 /** ค่าที่ผู้ใช้เลือกในตัวกรองปี พ.ศ. — "all" คือตัวเลือก "ทั้งหมด" */
 export type YearFilter = { kind: "all" } | { kind: "year"; year: number };
 
-/** แปลงค่าดิบจาก searchParams (`?year=...`) เป็น YearFilter — ไม่มีค่า/"all" = ทั้งหมด (ค่า default) */
+/**
+ * แปลงค่าดิบจาก searchParams (`?year=...`) เป็น YearFilter — ไม่มีค่า/"all" = ทั้งหมด (ค่า default)
+ * ค่าที่ parse ไม่ได้หรือนอกช่วงปีที่สมเหตุสมผล (แก้ URL เองได้ตรงๆ) ถือเป็น "ทั้งหมด" —
+ * กัน NaN ไหลเข้า beYearRange() แล้วกลายเป็นเงื่อนไข "NaN-01-01" ใน query เงียบๆ
+ */
 export function parseYearParam(raw: string | undefined): YearFilter {
   if (!raw || raw === "all") return { kind: "all" };
-  return { kind: "year", year: Number(raw) };
+  const year = Number(raw);
+  if (!Number.isInteger(year) || year < 2400 || year > 2700)
+    return { kind: "all" };
+  return { kind: "year", year };
 }
 
 /** ช่วงวันที่ ISO ที่ต้อง filter — null หมายถึงไม่ต้อง filter (โหมด "ทั้งหมด") */

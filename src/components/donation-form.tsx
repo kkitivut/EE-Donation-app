@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ThaiDateInput from "@/components/thai-date-input";
+import MoneyInput from "@/components/money-input";
 import type { Category, Donation, Fd13Code, Purpose } from "@/lib/types";
 
 type Props = {
@@ -174,13 +175,10 @@ function DonationModal({
           </div>
           <div>
             <label className={labelCls}>จำนวนเงิน (บาท) *</label>
-            <input
+            <MoneyInput
               required
-              type="number"
-              step="0.01"
-              min="0.01"
               value={form.amount}
-              onChange={(e) => set("amount", e.target.value)}
+              onChange={(v) => set("amount", v)}
               className={inputCls}
             />
           </div>

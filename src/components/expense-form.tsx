@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ThaiDateInput from "@/components/thai-date-input";
+import MoneyInput from "@/components/money-input";
 import { formatMoney, formatThaiDate } from "@/lib/format";
 import {
   allocationSumMatches,
@@ -312,13 +313,10 @@ function ExpenseModal({
             </div>
             <div>
               <label className={labelCls}>ยอดจ่ายรวม (บาท) *</label>
-              <input
+              <MoneyInput
                 required
-                type="number"
-                step="0.01"
-                min="0.01"
                 value={form.total_amount}
-                onChange={(e) => set("total_amount", e.target.value)}
+                onChange={(v) => set("total_amount", v)}
                 className={inputCls}
               />
             </div>
@@ -368,15 +366,10 @@ function ExpenseModal({
                         </p>
                       )}
                     </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
+                    <MoneyInput
                       required
                       value={a.amount}
-                      onChange={(e) =>
-                        setAllocationAmount(a.donation_id, e.target.value)
-                      }
+                      onChange={(v) => setAllocationAmount(a.donation_id, v)}
                       className="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm tabular-nums"
                     />
                     <button
