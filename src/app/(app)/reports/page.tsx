@@ -62,7 +62,7 @@ export default async function ReportsPage({
 
         <ReportTable
           title="สรุปรายเดือน"
-          head={["เดือน", "รายรับ (บาท)", "รายจ่าย (บาท)", "รับ − จ่าย (บาท)"]}
+          head={["เดือน", "รายรับ (บาท)", "รายจ่าย (บาท)", "คงเหลือ (บาท)"]}
           rows={data.monthly.map((m) => [
             THAI_MONTHS_SHORT[m.month - 1],
             m.received,
