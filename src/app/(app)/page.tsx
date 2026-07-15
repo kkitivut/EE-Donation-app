@@ -103,9 +103,12 @@ export default async function DashboardPage({
       {/* กราฟภาพรวมรายปี (ล่างสุด) */}
       {data.yearly.length > 0 && (
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">
+          <h2 className="text-sm font-semibold text-slate-700">
             ภาพรวมรายรับ–รายจ่าย–คงเหลือ รายปี (คงเหลือสุทธิ = รับ − จ่าย ของแต่ละปี)
           </h2>
+          <p className="mb-3 text-sm font-bold text-[#1baf7a]">
+            รวมคงเหลือสุทธิสะสม {formatMoney(data.totalBalance)} บาท
+          </p>
           <YearlyChart data={data.yearly} />
         </div>
       )}

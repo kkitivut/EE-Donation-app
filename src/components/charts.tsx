@@ -5,9 +5,10 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  LabelList,
   Legend,
   Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -31,6 +32,7 @@ const CATEGORICAL = [
   "#e34948", // red
 ];
 const INK_MUTED = "#898781";
+const INK_LABEL = "#57554d";
 const GRID = "#e1e0d9";
 
 const compact = new Intl.NumberFormat("th-TH", {
@@ -109,9 +111,13 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
     คงเหลือสุทธิ: Math.round((y.received - y.spent) * 100) / 100,
   }));
 
+  const labelStyle = { fontSize: 11, fill: INK_LABEL, fontWeight: 600 } as const;
+  const barLabelFormatter = (v: unknown) => (typeof v === "number" && v ? compact.format(v) : "");
+  const netLabelFormatter = (v: unknown) => (typeof v === "number" ? compact.format(v) : "");
+
   return (
-    <ResponsiveContainer width="100%" height={320}>
-      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={340}>
+      <ComposedChart data={chartData} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis
           dataKey="name"
@@ -127,35 +133,31 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
           tickLine={false}
           width={52}
         />
-        <Tooltip content={<BahtTooltip />} />
+        <Tooltip content={<BahtTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
         <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+        <Bar dataKey="รายรับ" fill={RECEIVED} radius={[4, 4, 0, 0]} maxBarSize={22}>
+          <LabelList dataKey="รายรับ" position="top" style={labelStyle} formatter={barLabelFormatter} />
+        </Bar>
+        <Bar dataKey="รายจ่าย" fill={SPENT} radius={[4, 4, 0, 0]} maxBarSize={22}>
+          <LabelList dataKey="รายจ่าย" position="top" style={labelStyle} formatter={barLabelFormatter} />
+        </Bar>
         <Line
-          type="monotone"
-          dataKey="รายรับ"
-          stroke={RECEIVED}
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          dot={{ r: 4, strokeWidth: 0, fill: RECEIVED }}
-          activeDot={{ r: 6 }}
-        />
-        <Line
-          type="monotone"
-          dataKey="รายจ่าย"
-          stroke={SPENT}
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          dot={{ r: 4, strokeWidth: 0, fill: SPENT }}
-          activeDot={{ r: 6 }}
-        />
-        <Line
-          type="monotone"
+          type="linear"
           dataKey="คงเหลือสุทธิ"
           stroke={NET}
           strokeWidth={2}
           dot={{ r: 4, strokeWidth: 0, fill: NET }}
           activeDot={{ r: 6 }}
-        />
-      </LineChart>
+        >
+          <LabelList
+            dataKey="คงเหลือสุทธิ"
+            position="top"
+            offset={12}
+            style={{ ...labelStyle, fill: INK_LABEL }}
+            formatter={netLabelFormatter}
+          />
+        </Line>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
