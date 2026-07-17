@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 
 export type ParsedDonation = {
   sheet: string;
@@ -85,6 +86,11 @@ function toText(value: unknown): string | null {
   if (value == null) return null;
   const s = String(value).trim();
   return s === "" ? null : s;
+}
+
+/** drive_url จาก Excel: เก็บเฉพาะที่เป็น http(s) — กัน javascript:/data: (stored XSS) */
+function safeDriveUrl(value: string | null): string | null {
+  return isSafeHttpUrl(value) ? value : null;
 }
 
 /** จัดชื่อวัตถุประสงค์ให้เป็นมาตรฐานเดียวกัน (สะกดต่างกันในไฟล์เก่า) */
@@ -177,7 +183,7 @@ export function parseWorkbook(data: ArrayBuffer): ParseResult {
           channel: toText(r[cChannel]),
           account: toText(r[cAccount]),
           category_name: toText(r[cCategory]),
-          drive_url: toText(r[cDriveUrl]),
+          drive_url: safeDriveUrl(toText(r[cDriveUrl])),
         });
       }
     }

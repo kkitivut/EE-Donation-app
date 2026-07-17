@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ThaiDateInput from "@/components/thai-date-input";
 import MoneyInput from "@/components/money-input";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 import type { Category, Donation, Fd13Code, Purpose } from "@/lib/types";
 
 type Props = {
@@ -84,6 +85,13 @@ function DonationModal({
     setSaving(true);
     setError(null);
 
+    const driveUrl = form.drive_url.trim();
+    if (driveUrl && !isSafeHttpUrl(driveUrl)) {
+      setError("ลิงก์เอกสารแนบต้องขึ้นต้นด้วย http:// หรือ https:// เท่านั้น");
+      setSaving(false);
+      return;
+    }
+
     const payload = {
       receipt_no: form.receipt_no.trim(),
       donor_name: form.donor_name.trim(),
@@ -95,7 +103,7 @@ function DonationModal({
       channel: form.channel.trim() || null,
       account: form.account.trim() || null,
       category_id: form.category_id || null,
-      drive_url: form.drive_url.trim() || null,
+      drive_url: driveUrl || null,
       note: form.note.trim() || null,
     };
 

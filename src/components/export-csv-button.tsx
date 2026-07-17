@@ -1,18 +1,10 @@
 "use client";
 
 import { THAI_MONTHS_SHORT } from "@/lib/format";
+import { csvRow } from "@/lib/csv";
 
 type MonthlyPoint = { month: number; received: number; spent: number };
 type NamedTotal = { name: string; received: number; spent: number };
-
-function csvCell(v: string | number): string {
-  if (typeof v === "number") return v.toFixed(2);
-  return `"${v.replace(/"/g, '""')}"`;
-}
-
-function csvRow(cells: (string | number)[]): string {
-  return cells.map(csvCell).join(",");
-}
 
 export default function ExportCsvButton({
   year,

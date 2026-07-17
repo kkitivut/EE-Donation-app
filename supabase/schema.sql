@@ -39,7 +39,7 @@ create table donations (
   channel text,                          -- ช่องทางบริจาค เช่น โอนเงิน
   account text,                          -- ข้อมูลบัญชี เช่น EDONATION, กสิกรไทย
   category_id uuid references categories(id),
-  drive_url text,
+  drive_url text check (drive_url is null or drive_url ~* '^https?://'),  -- กัน javascript:/data: (stored XSS)
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -57,7 +57,7 @@ create table expenses (
   paid_date date not null,
   description text not null,
   total_amount numeric(14,2) not null check (total_amount > 0),
-  drive_url text,
+  drive_url text check (drive_url is null or drive_url ~* '^https?://'),  -- กัน javascript:/data: (stored XSS)
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

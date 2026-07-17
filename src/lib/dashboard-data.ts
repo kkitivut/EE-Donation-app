@@ -93,11 +93,11 @@ export async function getDashboardData(
   }
 
   const [
-    { data: donations },
-    { data: allocations },
+    donationsResult,
+    allocationsResult,
     prevResult,
-    { data: overall },
-    { data: yearlyRows },
+    overallResult,
+    yearlyResult,
   ] = await Promise.all([
     donationsQuery,
     allocationsQuery,
@@ -106,6 +106,24 @@ export async function getDashboardData(
     // สรุปรายปีรวม (สำหรับกราฟเปรียบเทียบรายปี) — รวมยอดฝั่ง Postgres แทนการดึงทั้งตารางมารวมใน JS
     supabase.rpc("yearly_summary"),
   ]);
+
+  // log error ฝั่ง server ไว้ debug (ไม่ surface ให้ client) — เดิมถูกกลืนเงียบ ทำให้ DB ล้ม
+  // แล้วแดชบอร์ดโชว์ ฿0 โดยไม่มีร่องรอย
+  for (const [label, result] of [
+    ["donations", donationsResult],
+    ["allocations", allocationsResult],
+    ["prevDonations", prevResult],
+    ["overall_summary", overallResult],
+    ["yearly_summary", yearlyResult],
+  ] as const) {
+    const err = (result as { error?: unknown }).error;
+    if (err) console.error(`[dashboard-data] ${label}`, err);
+  }
+
+  const donations = donationsResult.data;
+  const allocations = allocationsResult.data;
+  const overall = overallResult.data;
+  const yearlyRows = yearlyResult.data;
   const prevDonations = (prevResult?.data ?? []) as { amount: number }[];
 
   const dRows = (donations ?? []) as unknown as DonationRow[];

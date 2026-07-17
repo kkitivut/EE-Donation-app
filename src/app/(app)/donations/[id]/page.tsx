@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatThaiDate } from "@/lib/format";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 import type { DonationWithRefs, Expense } from "@/lib/types";
 import DonationFormButton from "@/components/donation-form";
 import PrintButton from "@/components/print-button";
@@ -112,14 +113,18 @@ export default async function DonationDetailPage({
             <div className="no-print">
               <dt className="text-xs text-slate-400">เอกสารแนบ</dt>
               <dd>
-                <a
-                  href={d.drive_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-teal-700 hover:underline"
-                >
-                  เปิดใน Google Drive ↗
-                </a>
+                {isSafeHttpUrl(d.drive_url) ? (
+                  <a
+                    href={d.drive_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-teal-700 hover:underline"
+                  >
+                    เปิดใน Google Drive ↗
+                  </a>
+                ) : (
+                  <span className="break-all text-slate-500">{d.drive_url}</span>
+                )}
               </dd>
             </div>
           )}

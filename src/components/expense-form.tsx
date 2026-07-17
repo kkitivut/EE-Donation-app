@@ -13,6 +13,7 @@ import {
 } from "@/lib/allocation";
 import { sanitizeSearchTerm } from "@/lib/search";
 import { toUserMessage } from "@/lib/error-message";
+import { isSafeHttpUrl } from "@/lib/safe-url";
 import type { Expense } from "@/lib/types";
 
 type ExpenseWithAllocations = Expense & {
@@ -225,6 +226,12 @@ function ExpenseModal({
       return;
     }
 
+    const driveUrl = form.drive_url.trim();
+    if (driveUrl && !isSafeHttpUrl(driveUrl)) {
+      setError("ลิงก์เอกสารแนบต้องขึ้นต้นด้วย http:// หรือ https:// เท่านั้น");
+      return;
+    }
+
     setSaving(true);
     const { error } = await supabase.rpc("save_expense", {
       p_expense_id: expense?.id ?? null,
@@ -232,7 +239,7 @@ function ExpenseModal({
       p_paid_date: form.paid_date,
       p_description: form.description.trim(),
       p_total_amount: totalAmount,
-      p_drive_url: form.drive_url.trim() || null,
+      p_drive_url: driveUrl || null,
       p_note: form.note.trim() || null,
       p_allocations: allocations.map((a) => ({
         donation_id: a.donation_id,
