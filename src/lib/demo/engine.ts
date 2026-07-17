@@ -1,6 +1,7 @@
 import "server-only";
 import { SEED, type SeedDb } from "./seed";
 import type { Filter, QueryResult, QueryState } from "./shared";
+import { beYear } from "@/lib/format";
 
 type Row = Record<string, unknown>;
 type TableName = keyof SeedDb;
@@ -205,12 +206,44 @@ function computeDonationBalances(): Row[] {
   });
 }
 
+// ===== view: donations_list_view (คำนวณสดจาก donations + purposes + categories + expense_allocations) =====
+
+function computeDonationsListView(): Row[] {
+  const allocations = getTable("expense_allocations");
+  const purposes = getTable("purposes");
+  const categories = getTable("categories");
+  return getTable("donations").map((d) => {
+    const allocated = allocations
+      .filter((a) => a.donation_id === d.id)
+      .reduce((s, a) => s + Number(a.amount), 0);
+    const purpose = purposes.find((p) => p.id === d.purpose_id);
+    const category = categories.find((c) => c.id === d.category_id);
+    return {
+      id: d.id,
+      receipt_no: d.receipt_no,
+      donor_name: d.donor_name,
+      amount: d.amount,
+      receipt_date: d.receipt_date,
+      purpose_id: d.purpose_id,
+      category_id: d.category_id,
+      purpose_name: purpose?.name ?? null,
+      category_name: category?.name ?? null,
+      balance: Math.round((Number(d.amount) - allocated) * 100) / 100,
+    };
+  });
+}
+
 // ===== select / insert / update / delete =====
 
 function doSelect(state: QueryState): QueryResult {
   const isBalanceView = state.table === "donation_balances";
+  const isDonationsListView = state.table === "donations_list_view";
   const table = state.table as TableName;
-  const baseRows = isBalanceView ? computeDonationBalances() : getTable(table);
+  const baseRows = isBalanceView
+    ? computeDonationBalances()
+    : isDonationsListView
+      ? computeDonationsListView()
+      : getTable(table);
   let rows = baseRows.filter((r) => state.filters.every((f) => passFilter(table, r, f)));
   const count = rows.length;
 
@@ -493,8 +526,41 @@ function rpcOverallSummary(): QueryResult {
   };
 }
 
+function rpcYearlySummary(): QueryResult {
+  const donations = getTable("donations");
+  const allocations = getTable("expense_allocations");
+  const expenses = getTable("expenses");
+
+  const receivedByYear = new Map<number, number>();
+  for (const d of donations) {
+    const y = beYear(d.receipt_date as string);
+    if (y == null) continue;
+    receivedByYear.set(y, (receivedByYear.get(y) ?? 0) + Number(d.amount));
+  }
+
+  const spentByYear = new Map<number, number>();
+  for (const a of allocations) {
+    const expense = expenses.find((e) => e.id === a.expense_id);
+    const y = expense ? beYear(expense.paid_date as string) : null;
+    if (y == null) continue;
+    spentByYear.set(y, (spentByYear.get(y) ?? 0) + Number(a.amount));
+  }
+
+  const years = new Set([...receivedByYear.keys(), ...spentByYear.keys()]);
+  const data = [...years]
+    .sort((a, b) => a - b)
+    .map((year) => ({
+      year,
+      received: receivedByYear.get(year) ?? 0,
+      spent: spentByYear.get(year) ?? 0,
+    }));
+
+  return { data, error: null };
+}
+
 export function executeRpc(name: string, args: unknown): QueryResult {
   if (name === "save_expense") return rpcSaveExpense(args as SaveExpenseArgs);
   if (name === "overall_summary") return rpcOverallSummary();
+  if (name === "yearly_summary") return rpcYearlySummary();
   return { data: null, error: { message: `ไม่รู้จัก RPC: ${name}` } };
 }
