@@ -7,7 +7,7 @@ import {
   yearFilterRange,
   yearListDescending,
 } from "@/lib/year-range";
-import { sanitizeSearchTerm } from "@/lib/search";
+import { orIlikeFilter } from "@/lib/search";
 import { toUserMessage } from "@/lib/error-message";
 import type { Expense } from "@/lib/types";
 import ExpenseFormButton from "@/components/expense-form";
@@ -50,9 +50,9 @@ export default async function ExpensesPage({
   if (range) {
     query = query.gte("paid_date", range.from).lte("paid_date", range.to);
   }
-  const q = params.q ? sanitizeSearchTerm(params.q) : "";
+  const q = params.q?.trim() ?? "";
   if (q) {
-    query = query.or(`description.ilike.%${q}%,doc_no.ilike.%${q}%`);
+    query = query.or(orIlikeFilter(["description", "doc_no"], q));
   }
 
   const { data: expenses, count, error } = await query

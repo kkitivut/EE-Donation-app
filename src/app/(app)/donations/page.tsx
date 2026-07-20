@@ -7,7 +7,7 @@ import {
   yearFilterRange,
   yearListDescending,
 } from "@/lib/year-range";
-import { sanitizeSearchTerm } from "@/lib/search";
+import { orIlikeFilter } from "@/lib/search";
 import { toUserMessage } from "@/lib/error-message";
 import type { DonationListRow } from "@/lib/types";
 import DonationFormButton from "@/components/donation-form";
@@ -56,9 +56,9 @@ export default async function DonationsPage({
   }
   if (params.purpose) query = query.eq("purpose_id", params.purpose);
   if (params.category) query = query.eq("category_id", params.category);
-  const q = params.q ? sanitizeSearchTerm(params.q) : "";
+  const q = params.q?.trim() ?? "";
   if (q) {
-    query = query.or(`donor_name.ilike.%${q}%,receipt_no.ilike.%${q}%`);
+    query = query.or(orIlikeFilter(["donor_name", "receipt_no"], q));
   }
 
   const {

@@ -11,7 +11,7 @@ import {
   findOverAllocated,
   suggestAllocationAmount,
 } from "@/lib/allocation";
-import { sanitizeSearchTerm } from "@/lib/search";
+import { orIlikeFilter } from "@/lib/search";
 import { toUserMessage } from "@/lib/error-message";
 import { isSafeHttpUrl } from "@/lib/safe-url";
 import type { Expense } from "@/lib/types";
@@ -109,7 +109,7 @@ function ExpenseModal({
 
   async function runSearch(q: string) {
     setSearch(q);
-    const term = sanitizeSearchTerm(q);
+    const term = q.trim();
     if (term.length < 2) {
       setResults([]);
       return;
@@ -118,7 +118,7 @@ function ExpenseModal({
     const { data: donations } = await supabase
       .from("donations")
       .select("id, receipt_no, donor_name, receipt_date, purposes(name)")
-      .or(`donor_name.ilike.%${term}%,receipt_no.ilike.%${term}%`)
+      .or(orIlikeFilter(["donor_name", "receipt_no"], term))
       .order("receipt_date", { ascending: false })
       .limit(20);
 

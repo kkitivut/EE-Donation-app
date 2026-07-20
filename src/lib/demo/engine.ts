@@ -2,6 +2,7 @@ import "server-only";
 import { SEED, type SeedDb } from "./seed";
 import type { Filter, QueryResult, QueryState } from "./shared";
 import { beYear } from "@/lib/format";
+import { splitOrTopLevel, unquoteValue } from "./or-filter";
 
 type Row = Record<string, unknown>;
 type TableName = keyof SeedDb;
@@ -172,12 +173,12 @@ function passFilter(table: TableName, row: Row, f: Filter): boolean {
     case "ilike":
       return matchIlike(row[f.key], f.value);
     case "or": {
-      const parts = f.raw.split(",");
+      const parts = splitOrTopLevel(f.raw);
       return parts.some((part) => {
         const segs = part.split(".");
         const col = segs[0];
         const op = segs[1];
-        const value = segs.slice(2).join(".");
+        const value = unquoteValue(segs.slice(2).join("."));
         if (op === "ilike") return matchIlike(row[col], value);
         if (op === "eq") return String(row[col]) === value;
         return false;

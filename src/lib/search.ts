@@ -1,13 +1,20 @@
 /**
- * ทำความสะอาดคำค้นหาจากผู้ใช้ก่อนนำไปต่อเป็น string ของ PostgREST `.or()` filter
+ * ประกอบ PostgREST `.or()` filter สำหรับค้นหาแบบ ilike หลายคอลัมน์
  *
- * `.or()` ใช้ `,` แยกเงื่อนไข, `.` แยก column.operator.value, และ `()` สำหรับ nested logic
- * ถ้าปล่อยให้ผู้ใช้พิมพ์อักขระเหล่านี้ต่อเข้า filter string ตรงๆ จะทำให้ query parse ผิด
- * (error หรือเงื่อนไขเพี้ยนจากที่ตั้งใจ) — จึงตัดอักขระที่ทำลาย syntax ออกก่อน
+ * PostgREST ให้ครอบค่าด้วย `"` เมื่อค่ามีอักขระสงวน แล้ว escape `"` กับ `\` ข้างในด้วย `\`
+ * วิธีนี้ถูกต้องกว่าการ "ตัดอักขระทิ้ง" แบบเดิม เพราะเลขที่ใบเสร็จ/เลขที่ส่งออกจริงของระบบนี้
+ * มีจุดกับทับเสมอ (บส.31/2200, ท.13/69, บจ.10/57) และชื่อบริษัทไทยมีวงเล็บ ((มหาชน))
+ * — การตัดอักขระทำให้ค้นด้วยเลขที่เต็มไม่เจอเลย (ดู ADR-008)
+ *
+ * อักขระที่ทำ syntax พังจริงคือ `,` (คั่นเงื่อนไข) และวงเล็บ (จัดกลุ่ม) ไม่ใช่ `.`
+ * — ยืนยันด้วยการยิง PostgREST จริง: ค่าที่มีจุด/ทับแบบไม่ quote ได้ 200,
+ * ค่าที่มี comma แบบไม่ quote ได้ 400 (PGRST100 parse error)
  *
  * ครอบเฉพาะจุดที่ประกอบ `.or()` เป็น string เอง; การเรียก `.ilike(col, value)` แบบ
  * method call ส่งค่าเป็น parameter แยก ไม่ต้องผ่านฟังก์ชันนี้
  */
-export function sanitizeSearchTerm(raw: string): string {
-  return raw.replace(/[,().*]/g, "").trim();
+export function orIlikeFilter(columns: string[], raw: string): string {
+  // escape `\` ก่อน `"` เสมอ ไม่งั้น backslash ที่เพิ่งใส่จะถูก escape ซ้ำ
+  const value = raw.trim().replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return columns.map((col) => `${col}.ilike."%${value}%"`).join(",");
 }
