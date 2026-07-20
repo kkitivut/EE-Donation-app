@@ -151,8 +151,8 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
         >
           <LabelList
             dataKey="คงเหลือสุทธิ"
-            position="top"
-            offset={12}
+            position="bottom"
+            offset={10}
             style={{ ...labelStyle, fill: NET }}
             formatter={netLabelFormatter}
           />
