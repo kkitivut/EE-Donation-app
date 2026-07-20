@@ -37,7 +37,7 @@ const GRID = "#e1e0d9";
 
 const compact = new Intl.NumberFormat("th-TH", {
   notation: "compact",
-  maximumFractionDigits: 1,
+  maximumFractionDigits: 2,
 });
 
 function BahtTooltip({
