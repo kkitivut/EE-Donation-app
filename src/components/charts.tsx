@@ -153,7 +153,7 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
             dataKey="คงเหลือสุทธิ"
             position="top"
             offset={12}
-            style={{ ...labelStyle, fill: INK_LABEL }}
+            style={{ ...labelStyle, fill: NET }}
             formatter={netLabelFormatter}
           />
         </Line>
