@@ -144,7 +144,7 @@ export default async function DonationDetailPage({
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs text-slate-500">
               <th className="px-4 py-3 font-medium">ลำดับ</th>
               <th className="px-4 py-3 font-medium">วันที่</th>
-              <th className="px-4 py-3 font-medium">เลขที่ส่งออก</th>
+              <th className="px-4 py-3 font-medium">เลขที่ใบเสร็จ/เลขที่ส่งออก</th>
               <th className="px-4 py-3 font-medium">รายการ</th>
               <th className="px-4 py-3 text-right font-medium">รับ (บาท)</th>
               <th className="px-4 py-3 text-right font-medium">จ่าย (บาท)</th>
