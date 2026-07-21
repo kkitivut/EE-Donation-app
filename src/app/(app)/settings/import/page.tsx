@@ -156,51 +156,63 @@ export default function ImportPage() {
           (data ?? []).forEach((d) => donationMap.set(d.receipt_no, d.id));
         }
 
-        // 2) นำเข้าทีละรายการผ่าน save_expense (ตัดเต็มจำนวนจากใบเสร็จนั้น)
-        for (let i = 0; i < parsed.expenses.length; i++) {
-          const e = parsed.expenses[i];
-          setProgress(`กำลังนำเข้ารายจ่าย ${i + 1}/${parsed.expenses.length}...`);
+        // 2) นำเข้าทีละกลุ่มผ่าน save_expense — 1 กลุ่ม = 1 รายจ่าย อาจตัดหลายใบเสร็จ
+        //    (กลุ่มถูกรวมไว้แล้วใน groupExpenseSplits() ตอน parse ดู ADR-009)
+        const groups = parsed.expenseGroups;
+        for (let i = 0; i < groups.length; i++) {
+          const g = groups[i];
+          const receiptsLabel = g.allocations.map((a) => a.receipt_no).join(", ");
+          setProgress(`กำลังนำเข้ารายจ่าย ${i + 1}/${groups.length}...`);
 
-          const donationId = donationMap.get(e.receipt_no);
-          if (!donationId) {
+          // ต้องพบใบเสร็จครบทุกใบของกลุ่มนี้ — ถ้าขาดใบไหนให้ล้มทั้งกลุ่ม กันได้ข้อมูล
+          // ผิดรูป (รายจ่ายเดียวที่ตัดไม่ครบทุกใบ) กลับมาอีก
+          const missing = g.allocations
+            .map((a) => a.receipt_no)
+            .filter((r) => !donationMap.has(r));
+          if (missing.length > 0) {
             fail++;
             log(
               "error",
-              `sheet ${e.sheet} แถว ${e.row}: ไม่พบใบเสร็จ ${e.receipt_no} ในระบบ — นำเข้าไฟล์ข้อมูลบริจาคก่อน`
+              `"${g.description}" (${receiptsLabel}): ไม่พบใบเสร็จ ${missing.join(", ")} ในระบบ — นำเข้าไฟล์ข้อมูลบริจาคก่อน`
             );
             continue;
           }
 
-          // กันนำเข้าซ้ำ: รายการ+วันจ่าย+ยอดเดียวกันที่ตัดใบเดียวกันอยู่แล้ว
+          const firstDonationId = donationMap.get(g.allocations[0].receipt_no)!;
+
+          // กันนำเข้าซ้ำ: รายการ+วันจ่าย+ยอดรวมเดียวกันที่ตัดใบแรกของกลุ่มนี้อยู่แล้ว
           const { data: dup } = await supabase
             .from("expenses")
             .select("id, expense_allocations!inner(donation_id)")
-            .eq("description", e.description)
-            .eq("paid_date", e.paid_date)
-            .eq("total_amount", e.amount)
-            .eq("expense_allocations.donation_id", donationId)
+            .eq("description", g.description)
+            .eq("paid_date", g.paid_date)
+            .eq("total_amount", g.total_amount)
+            .eq("expense_allocations.donation_id", firstDonationId)
             .limit(1);
           if (dup && dup.length > 0) {
             skip++;
-            log("skip", `"${e.description}" (${e.receipt_no}) มีในระบบแล้ว — ข้าม`);
+            log("skip", `"${g.description}" (${receiptsLabel}) มีในระบบแล้ว — ข้าม`);
             continue;
           }
 
           const { error } = await supabase.rpc("save_expense", {
             p_expense_id: null,
-            p_doc_no: e.doc_no,
-            p_paid_date: e.paid_date,
-            p_description: e.description,
-            p_total_amount: e.amount,
+            p_doc_no: g.doc_no,
+            p_paid_date: g.paid_date,
+            p_description: g.description,
+            p_total_amount: g.total_amount,
             p_drive_url: null,
             p_note: null,
-            p_allocations: [{ donation_id: donationId, amount: e.amount }],
+            p_allocations: g.allocations.map((a) => ({
+              donation_id: donationMap.get(a.receipt_no)!,
+              amount: a.amount,
+            })),
           });
           if (error) {
             fail++;
             log(
               "error",
-              `"${e.description}" (${e.receipt_no}): ${toUserMessage(error)}`
+              `"${g.description}" (${receiptsLabel}): ${toUserMessage(error)}`
             );
           } else {
             ok++;
@@ -307,10 +319,12 @@ export default function ImportPage() {
           {parsed.fileType === "expenses" && (
             <p className="text-sm text-slate-600">
               ไฟล์รายจ่าย · พบ{" "}
-              <strong>{parsed.expenses.length.toLocaleString()}</strong> รายการ
+              <strong>{parsed.expenses.length.toLocaleString()}</strong> แถว
               จาก{" "}
               {[...new Set(parsed.expenses.map((e) => e.receipt_no))].length}{" "}
-              ใบเสร็จ · ยอดรวม <strong>{formatMoney(expenseTotal)}</strong> บาท
+              ใบเสร็จ · รวมเป็น{" "}
+              <strong>{parsed.expenseGroups.length.toLocaleString()}</strong>{" "}
+              รายจ่าย · ยอดรวม <strong>{formatMoney(expenseTotal)}</strong> บาท
             </p>
           )}
 
@@ -324,6 +338,19 @@ export default function ImportPage() {
                   <li key={i}>
                     sheet {iss.sheet} แถว {iss.row}: {iss.reason}
                   </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {parsed.notices.length > 0 && (
+            <div className="mt-3 rounded-lg bg-sky-50 p-3">
+              <p className="mb-1 text-xs font-semibold text-sky-800">
+                รายการที่ควรตรวจสอบ ({parsed.notices.length})
+              </p>
+              <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs text-sky-700">
+                {parsed.notices.map((n, i) => (
+                  <li key={i}>{n.reason}</li>
                 ))}
               </ul>
             </div>

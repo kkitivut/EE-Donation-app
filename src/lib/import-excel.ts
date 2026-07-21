@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { isSafeHttpUrl } from "@/lib/safe-url";
+import { formatThaiDate } from "@/lib/format";
 
 export type ParsedDonation = {
   sheet: string;
@@ -29,11 +30,27 @@ export type ParsedExpense = {
 
 export type ParseIssue = { sheet: string; row: number; reason: string };
 
+/**
+ * รายจ่าย 1 รายการหลังรวมแถวที่เป็นการจ่ายครั้งเดียวกันแต่ตัดเงินจากหลายใบเสร็จ
+ * (ไฟล์ Excel เป็น 1 sheet ต่อ 1 ใบเสร็จ การจ่ายที่ตัดหลายใบจึงกระจายเป็นคนละแถวคนละ sheet)
+ */
+export type ParsedExpenseGroup = {
+  doc_no: string | null;
+  paid_date: string;
+  description: string;
+  total_amount: number; // ผลรวมของทุก allocation
+  allocations: { receipt_no: string; amount: number }[];
+  sources: { sheet: string; row: number }[];
+};
+
 export type ParseResult = {
   fileType: "donations" | "expenses" | "unknown";
   donations: ParsedDonation[];
   expenses: ParsedExpense[];
+  expenseGroups: ParsedExpenseGroup[];
   issues: ParseIssue[];
+  /** ข้อสังเกตที่ไม่ถึงขั้นข้ามแถว — แจ้งให้ผู้ใช้ตรวจสอบเอง */
+  notices: ParseIssue[];
 };
 
 /** แปลงค่าวันที่จาก Excel (serial number / Date / ข้อความ d/m/ปี พ.ศ. หรือ ค.ศ.) เป็น ISO */
@@ -187,7 +204,14 @@ export function parseWorkbook(data: ArrayBuffer): ParseResult {
         });
       }
     }
-    return { fileType: "donations", donations, expenses, issues };
+    return {
+      fileType: "donations",
+      donations,
+      expenses,
+      expenseGroups: [],
+      issues,
+      notices: [],
+    };
   }
 
   // ===== ไฟล์รายจ่าย: 1 sheet ต่อใบเสร็จ =====
@@ -260,10 +284,137 @@ export function parseWorkbook(data: ArrayBuffer): ParseResult {
     }
   }
 
+  const { groups: expenseGroups, notices } = groupExpenseSplits(expenses);
+
   return {
     fileType: foundLedger ? "expenses" : "unknown",
     donations,
     expenses,
+    expenseGroups,
     issues,
+    notices,
   };
+}
+
+/**
+ * รวมแถวรายจ่ายที่เป็น "การจ่ายครั้งเดียวกัน แต่ตัดเงินจากหลายใบเสร็จ" ให้กลับมาเป็น
+ * 1 รายจ่าย × N allocations ตามโมเดล ADR-002 — แทนที่จะปล่อยให้กลายเป็น N รายจ่าย × 1 allocation
+ * ตามโครงสร้างไฟล์ Excel เดิม (1 sheet ต่อใบเสร็จ) ดู ADR-009
+ *
+ * กติกา (เจตนาเข้มงวด — รวมเฉพาะเคสที่มั่นใจได้จริง):
+ * - รวมเมื่อ doc_no (ไม่ว่าง) + description + paid_date ตรงกันทุกตัวอักษร ข้าม sheet ต่างกัน
+ * - doc_no ว่าง → ไม่รวมเด็ดขาด (ไม่มีหลักฐานพอว่าเป็นรายจ่ายเดียวกัน) แต่ถ้า description+paid_date
+ *   ซ้ำข้าม sheet ก็ยังแจ้งเตือนให้ผู้ใช้ตรวจเอง
+ * - doc_no ตรงกันแต่ description ต่างกัน → ไม่รวม (นี่คือเคส "เอกสารรวมหลายรายการ" ที่ถูกต้องอยู่แล้ว
+ *   เช่น ค่าจ้างเหมายานพาหนะ + ค่าส่งไปรษณีย์ ใน doc_no เดียวกัน) แค่แจ้งเตือนให้ตรวจสอบ
+ * - แถวซ้ำ (key เดียวกัน + receipt_no เดียวกัน) ใน sheet เดิม → รวม amount เป็น allocation เดียว
+ *   พร้อมเตือนว่าพบแถวซ้ำ
+ */
+export function groupExpenseSplits(expenses: ParsedExpense[]): {
+  groups: ParsedExpenseGroup[];
+  notices: ParseIssue[];
+} {
+  const notices: ParseIssue[] = [];
+  const byMergeKey = new Map<string, ParsedExpense[]>();
+
+  for (const e of expenses) {
+    // doc_no ว่าง → คีย์ไม่ซ้ำใครเลย (ผูกกับ sheet+row) กันไม่ให้ถูกรวมข้าม sheet
+    // ใช้ JSON.stringify ของ array แทนการต่อ string ด้วยช่องว่าง กันไม่ให้ doc_no/description
+    // ที่มีช่องว่างอยู่ในตัวมันเองบังเอิญประกอบกันเป็น key เดียวกับแถวอื่นที่ไม่เกี่ยวข้องกัน
+    const keyParts = e.doc_no
+      ? ["doc", e.doc_no, e.description, e.paid_date]
+      : ["nodoc", e.sheet, String(e.row)];
+    const key = JSON.stringify(keyParts);
+    const list = byMergeKey.get(key);
+    if (list) list.push(e);
+    else byMergeKey.set(key, [e]);
+  }
+
+  // เตือนกรณี doc_no ตรงกันแต่ description ต่างกันข้าม sheet (ไม่รวม แค่แจ้ง)
+  const byDocNo = new Map<string, ParsedExpense[]>();
+  for (const e of expenses) {
+    if (!e.doc_no) continue;
+    const list = byDocNo.get(e.doc_no);
+    if (list) list.push(e);
+    else byDocNo.set(e.doc_no, [e]);
+  }
+  for (const [docNo, list] of byDocNo) {
+    const sheets = new Set(list.map((e) => e.sheet));
+    const descriptions = new Set(list.map((e) => e.description));
+    if (sheets.size > 1 && descriptions.size > 1) {
+      notices.push({
+        sheet: [...sheets].join(", "),
+        row: 0,
+        reason: `เลขที่ส่งออก "${docNo}" ปรากฏในหลายใบเสร็จ (${[...sheets].join(", ")}) ด้วยรายการที่ต่างกัน — ตรวจสอบว่าเป็นเอกสารรวมหลายรายการจริง หรือควรรวมเป็นรายการเดียวกัน`,
+      });
+    }
+  }
+
+  // เตือนกรณี doc_no ว่าง แต่ description+paid_date ซ้ำข้าม sheet
+  const noDocKey = new Map<string, ParsedExpense[]>();
+  for (const e of expenses) {
+    if (e.doc_no) continue;
+    const key = JSON.stringify([e.description, e.paid_date]);
+    const list = noDocKey.get(key);
+    if (list) list.push(e);
+    else noDocKey.set(key, [e]);
+  }
+  for (const list of noDocKey.values()) {
+    const sheets = new Set(list.map((e) => e.sheet));
+    if (sheets.size > 1) {
+      notices.push({
+        sheet: [...sheets].join(", "),
+        row: 0,
+        reason: `"${list[0].description}" (${formatThaiDate(list[0].paid_date)}) ปรากฏในหลายใบเสร็จ (${[...sheets].join(", ")}) แต่ไม่มีเลขที่ส่งออกให้ยืนยัน — ไม่ได้ถูกรวมอัตโนมัติ ตรวจสอบว่าเป็นรายการเดียวกันหรือไม่`,
+      });
+    }
+  }
+
+  const groups: ParsedExpenseGroup[] = [];
+  for (const list of byMergeKey.values()) {
+    // แถวซ้ำ (receipt_no เดียวกัน) ใน group เดียวกัน → รวม amount เป็น allocation เดียว
+    const byReceipt = new Map<string, { amount: number; rows: ParsedExpense[] }>();
+    for (const e of list) {
+      const existing = byReceipt.get(e.receipt_no);
+      if (existing) {
+        existing.amount += e.amount;
+        existing.rows.push(e);
+      } else {
+        byReceipt.set(e.receipt_no, { amount: e.amount, rows: [e] });
+      }
+    }
+    for (const [receiptNo, v] of byReceipt) {
+      if (v.rows.length > 1) {
+        notices.push({
+          sheet: v.rows[0].sheet,
+          row: v.rows[0].row,
+          reason: `พบแถวซ้ำ ${v.rows.length} แถวสำหรับ "${list[0].description}" ในใบเสร็จ ${receiptNo} — รวมยอดเป็นรายการเดียวแล้ว`,
+        });
+      }
+    }
+
+    const first = list[0];
+    const allocations = [...byReceipt.entries()].map(([receipt_no, v]) => ({
+      receipt_no,
+      amount: v.amount,
+    }));
+    if (allocations.length > 1) {
+      notices.push({
+        sheet: [...new Set(list.map((e) => e.sheet))].join(", "),
+        row: 0,
+        reason: `"${first.description}" (เลขที่ส่งออก ${first.doc_no ?? "-"}) ตัดเงินจาก ${allocations.length} ใบเสร็จ — รวมเป็นรายจ่ายเดียวแล้ว`,
+      });
+    }
+
+    groups.push({
+      doc_no: first.doc_no,
+      paid_date: first.paid_date,
+      description: first.description,
+      total_amount: allocations.reduce((s, a) => s + a.amount, 0),
+      allocations,
+      sources: list.map((e) => ({ sheet: e.sheet, row: e.row })),
+    });
+  }
+
+  return { groups, notices };
 }

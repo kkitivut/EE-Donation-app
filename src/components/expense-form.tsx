@@ -102,9 +102,36 @@ function ExpenseModal({
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [docNoWarning, setDocNoWarning] = useState<string | null>(null);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  /**
+   * เตือน (ไม่บล็อก) เมื่อเลขที่ส่งออกซ้ำกับรายจ่ายอื่นที่มีอยู่แล้ว — เผื่อผู้ใช้ตั้งใจ
+   * สร้างรายจ่ายใหม่แยกทีละใบเสร็จ ทั้งที่ควรแก้รายการเดิมแล้วเพิ่มใบเสร็จเข้าไปแทน
+   * (ต้นเหตุของบั๊กที่เคยต้องแก้ข้อมูลมือ 7 ชุด ดู ADR-009) — ไม่ใช้ .neq() เพราะ
+   * demo engine (src/lib/demo/engine.ts) ยังไม่รองรับ operator นี้ จึงกรอง id ตัวเองทิ้งใน JS แทน
+   */
+  async function checkDuplicateDocNo() {
+    const docNo = form.doc_no.trim();
+    if (!docNo) {
+      setDocNoWarning(null);
+      return;
+    }
+    const { data } = await supabase
+      .from("expenses")
+      .select("id, description, paid_date, total_amount")
+      .eq("doc_no", docNo);
+    const others = (data ?? []).filter((row) => row.id !== expense?.id);
+    if (others.length === 0) {
+      setDocNoWarning(null);
+      return;
+    }
+    setDocNoWarning(
+      `เลขที่ส่งออก "${docNo}" มีรายจ่ายอยู่แล้ว ${others.length} รายการ — ถ้าเป็นการจ่ายครั้งเดียวที่ตัดจากหลายใบเสร็จ ให้แก้รายการเดิมแล้วเพิ่มใบเสร็จเข้าไปแทนการสร้างรายการใหม่`
+    );
   }
 
   async function runSearch(q: string) {
@@ -331,7 +358,11 @@ function ExpenseModal({
               <label className={labelCls}>เลขที่ส่งออก</label>
               <input
                 value={form.doc_no}
-                onChange={(e) => set("doc_no", e.target.value)}
+                onChange={(e) => {
+                  set("doc_no", e.target.value);
+                  setDocNoWarning(null); // เลี่ยงคำเตือนค้างของค่าเก่าตอนผู้ใช้แก้ไขต่อ
+                }}
+                onBlur={checkDuplicateDocNo}
                 placeholder="เช่น ท.13/69"
                 className={inputCls}
               />
@@ -461,6 +492,12 @@ function ExpenseModal({
               className={inputCls}
             />
           </div>
+
+          {docNoWarning && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+              {docNoWarning}
+            </p>
+          )}
 
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
