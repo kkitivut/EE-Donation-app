@@ -158,7 +158,9 @@ export default async function DonationDetailPage({
                 {formatThaiDate(d.receipt_date)}
               </td>
               <td className="px-4 py-3">{d.receipt_no}</td>
-              <td className="px-4 py-3 font-medium">ยอดเงินบริจาค</td>
+              <td className="px-4 py-3 font-medium text-emerald-700">
+                รายรับเงินบริจาคสนับสนุนสถานศึกษา
+              </td>
               <td className="px-4 py-3 text-right font-medium tabular-nums text-emerald-700">
                 {formatMoney(d.amount)}
               </td>
@@ -179,7 +181,7 @@ export default async function DonationDetailPage({
                   <td className="px-4 py-3">
                     <Link
                       href={`/expenses?q=${encodeURIComponent(a.expenses.doc_no ?? a.expenses.description)}`}
-                      className="text-teal-700 hover:underline"
+                      className="text-red-600 hover:underline"
                     >
                       {a.expenses.description}
                     </Link>
