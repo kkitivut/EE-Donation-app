@@ -3,6 +3,7 @@ import { getDashboardData } from "@/lib/dashboard-data";
 import { formatMoney } from "@/lib/format";
 import { MonthlyChart, PurposeDonut, YearlyChart } from "@/components/charts";
 import YearSelect from "@/components/year-select";
+import { formatBeYearRangeLabel } from "@/lib/year-range";
 
 export default async function DashboardPage({
   searchParams,
@@ -23,6 +24,11 @@ export default async function DashboardPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-slate-800">
           แดชบอร์ด ปี {yearLabel}
+          {data.year === "all" && (
+            <span className="ml-2 font-normal text-slate-400">
+              {formatBeYearRangeLabel(data.years)}
+            </span>
+          )}
         </h1>
         <YearSelect years={data.years} value={data.year} basePath="/" />
       </div>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseYearParam, yearFilterRange, yearListDescending } from "@/lib/year-range";
+import {
+  formatBeYearRangeLabel,
+  parseYearParam,
+  yearFilterRange,
+  yearListDescending,
+} from "@/lib/year-range";
 
 describe("parseYearParam", () => {
   it("ไม่มีค่า หรือ 'all' = ทั้งหมด", () => {
@@ -48,5 +53,19 @@ describe("yearListDescending", () => {
 
   it("ปีเดียวคืนลิสต์ตัวเดียว", () => {
     expect(yearListDescending(2569, 2569)).toEqual([2569]);
+  });
+});
+
+describe("formatBeYearRangeLabel", () => {
+  it("หลายปีคืนช่วงปีแรกสุด-ล่าสุด (years เรียงมากไปน้อย)", () => {
+    expect(formatBeYearRangeLabel([2569, 2568, 2553])).toBe("พ.ศ. 2553 - พ.ศ. 2569");
+  });
+
+  it("มีข้อมูลปีเดียวคืนปีเดียว ไม่แสดง 'x - x' ซ้ำ", () => {
+    expect(formatBeYearRangeLabel([2569])).toBe("พ.ศ. 2569");
+  });
+
+  it("ลิสต์ว่างคืนสตริงว่าง", () => {
+    expect(formatBeYearRangeLabel([])).toBe("");
   });
 });

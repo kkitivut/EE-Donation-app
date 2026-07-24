@@ -32,6 +32,16 @@ export function yearListDescending(latestYear: number, firstYear: number): numbe
   return years;
 }
 
+/** ข้อความช่วงปี พ.ศ. สำหรับหัวข้อโหมด "ทั้งหมด" — years เรียงมากไปน้อย (จาก yearListDescending) */
+export function formatBeYearRangeLabel(years: number[]): string {
+  if (years.length === 0) return "";
+  const latest = years[0];
+  const first = years[years.length - 1];
+  return first === latest
+    ? `พ.ศ. ${first}` // มีข้อมูลปีเดียว → ไม่แสดง "x - x" ซ้ำ
+    : `พ.ศ. ${first} - พ.ศ. ${latest}`;
+}
+
 async function getYearBounds(
   supabase: SupabaseClient,
   table: string,
