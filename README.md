@@ -89,6 +89,7 @@ expenses (รายจ่าย) ──< expense_allocations >── donations
   - view donations_list_view     — ใช้ในหน้ารายการบริจาค (join lookup + balance ในตัว)
 สรุปยอด:
   - RPC overall_summary()        — ยอดสะสมทั้งหมด (dashboard)
-  - RPC yearly_summary()         — สรุปรายรับ-รายจ่ายแยกตามปี (กราฟเปรียบเทียบรายปี)
+  - RPC yearly_summary()         — สรุปรายรับ-รายจ่ายแยกตามปี (กราฟเปรียบเทียบรายปี + เส้น
+                                    คงเหลือสุทธิสะสม running sum ในกราฟเดียวกัน คำนวณฝั่ง client)
 ทั้งหมดคำนวณสดจากฐานข้อมูล ไม่มีการเก็บค่าซ้ำ
 ```
