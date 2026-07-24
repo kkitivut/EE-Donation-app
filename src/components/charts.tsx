@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -22,7 +23,8 @@ import type { MonthlyPoint, NamedTotal, YearlyPoint } from "@/lib/dashboard-data
 // palette ผ่าน scripts/validate_palette.js (dataviz) — light mode
 const RECEIVED = "#2a78d6";
 const SPENT = "#e34948";
-const NET = "#1baf7a"; // aqua — คงเหลือสุทธิ
+const NET = "#008300"; // เขียวเข้ม (money green) — คงเหลือสุทธิ
+const CUMULATIVE = "#1baf7a"; // aqua — คงเหลือสุทธิสะสม, ตรวจ CVD ผ่านแล้วต่างจาก NET ชัดเจน
 const CATEGORICAL = [
   "#2a78d6", // blue
   "#1baf7a", // aqua
@@ -104,20 +106,51 @@ export function MonthlyChart({ data }: { data: MonthlyPoint[] }) {
 }
 
 export function YearlyChart({ data }: { data: YearlyPoint[] }) {
-  const chartData = data.map((y) => ({
-    name: `${y.year}`,
-    รายรับ: y.received,
-    รายจ่าย: y.spent,
-    คงเหลือสุทธิ: Math.round((y.received - y.spent) * 100) / 100,
-  }));
+  let running = 0;
+  const chartData = data.map((y) => {
+    running += y.received - y.spent;
+    return {
+      name: `${y.year}`,
+      รายรับ: y.received,
+      รายจ่าย: y.spent,
+      คงเหลือสุทธิ: Math.round((y.received - y.spent) * 100) / 100,
+      คงเหลือสุทธิสะสม: Math.round(running * 100) / 100,
+    };
+  });
 
   const labelStyle = { fontSize: 11, fill: INK_LABEL, fontWeight: 600 } as const;
   const barLabelFormatter = (v: unknown) => (typeof v === "number" && v ? compact.format(v) : "");
   const netLabelFormatter = (v: unknown) => (typeof v === "number" ? compact.format(v) : "");
+  // เส้นสะสม: label เฉพาะจุดสุดท้าย กันป้ายทับกันเต็มกราฟ (อีก 2 เส้นมี label ทุกจุดอยู่แล้ว)
+  const lastIndex = chartData.length - 1;
+  // recharts ไม่ export type ของ props ที่ LabelList content รับให้ import ตรงๆ ได้ง่าย
+  // (ไม่มี index signature ให้ widen เป็น Record ได้) จึงรับเป็น any แล้วตรวจชนิดเองด้านใน
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cumEndLabel = (props: any) => {
+    const { x, y, value, index } = props;
+    if (
+      index !== lastIndex ||
+      typeof x !== "number" && typeof x !== "string" ||
+      typeof y !== "number" && typeof y !== "string" ||
+      typeof value !== "number"
+    )
+      return null;
+    return (
+      <text x={Number(x)} y={Number(y) - 12} textAnchor="middle" fontSize={11} fontWeight={700} fill={CUMULATIVE}>
+        {compact.format(value)}
+      </text>
+    );
+  };
 
   return (
-    <ResponsiveContainer width="100%" height={340}>
+    <ResponsiveContainer width="100%" height={380}>
       <ComposedChart data={chartData} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="cumAreaGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={CUMULATIVE} stopOpacity={0.22} />
+            <stop offset="100%" stopColor={CUMULATIVE} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis
           dataKey="name"
@@ -135,6 +168,18 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
         />
         <Tooltip content={<BahtTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
         <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+        {/* เส้นสะสม (พื้นที่ไล่เฉด) วางก่อน — ให้อยู่หลังแท่ง/เส้นอื่น ไม่บังข้อมูลหลัก */}
+        <Area
+          type="monotone"
+          dataKey="คงเหลือสุทธิสะสม"
+          stroke={CUMULATIVE}
+          strokeWidth={2}
+          fill="url(#cumAreaGradient)"
+          dot={{ r: 3.5, strokeWidth: 0, fill: CUMULATIVE }}
+          activeDot={{ r: 6 }}
+        >
+          <LabelList dataKey="คงเหลือสุทธิสะสม" content={cumEndLabel} />
+        </Area>
         <Bar dataKey="รายรับ" fill={RECEIVED} radius={[4, 4, 0, 0]} maxBarSize={22}>
           <LabelList dataKey="รายรับ" position="top" style={labelStyle} formatter={barLabelFormatter} />
         </Bar>
@@ -146,6 +191,7 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
           dataKey="คงเหลือสุทธิ"
           stroke={NET}
           strokeWidth={2}
+          strokeDasharray="6 3"
           dot={{ r: 4, strokeWidth: 0, fill: NET }}
           activeDot={{ r: 6 }}
         >
@@ -153,7 +199,7 @@ export function YearlyChart({ data }: { data: YearlyPoint[] }) {
             dataKey="คงเหลือสุทธิ"
             position="bottom"
             offset={10}
-            style={{ ...labelStyle, fill: NET }}
+            style={labelStyle}
             formatter={netLabelFormatter}
           />
         </Line>

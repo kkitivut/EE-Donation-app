@@ -106,7 +106,7 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* กราฟภาพรวมรายปี (ล่างสุด) */}
+      {/* กราฟภาพรวมรายปี (ล่างสุด) — รวมคงเหลือสุทธิรายปีและคงเหลือสุทธิสะสมไว้ในกราฟเดียว */}
       {data.yearly.length > 0 && (
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700">
